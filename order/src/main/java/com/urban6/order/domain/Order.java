@@ -8,7 +8,10 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "orders")
@@ -37,9 +40,6 @@ public class Order {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> items = new ArrayList<>();
 
-    @Version
-    private Long version;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -67,6 +67,20 @@ public class Order {
         OrderItem item = OrderItem.of(this, productId, quantity, unitPrice);
         this.items.add(item);
         this.totalAmount = this.totalAmount.add(item.subtotal());
+    }
+
+    /**
+     * 상품별 수량. 같은 상품이 여러 라인으로 들어왔으면 합산한다.
+     * <p>
+     * 예약할 때 합쳐서 잡았으므로 확정·해제도 합쳐서 해야 대칭이 맞는다.
+     * 라인마다 따로 돌리면 UPDATE 횟수만 늘고 같은 행에 락을 두 번 건다.
+     */
+    public Map<String, Integer> quantitiesByProduct() {
+        return items.stream().collect(Collectors.groupingBy(
+                OrderItem::getProductId,
+                LinkedHashMap::new,
+                Collectors.summingInt(OrderItem::getQuantity)
+        ));
     }
 
     @PrePersist

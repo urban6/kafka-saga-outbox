@@ -1,5 +1,11 @@
 package com.urban6.order.infra.messaging;
 
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 /**
  * 사가에서 오가는 메시지 종류.
  * <p>
@@ -33,5 +39,24 @@ public enum EventType {
 
 	public String topic() {
 		return topic;
+	}
+
+	private static final Map<String, EventType> BY_WIRE_VALUE = Stream.of(values())
+			.collect(Collectors.toUnmodifiableMap(Enum::name, Function.identity()));
+
+	/**
+	 * 와이어 문자열 → enum. <b>모르는 값이면 빈 Optional</b>이고 예외를 던지지 않는다.
+	 * <p>
+	 * payment 가 회신 종류를 추가해도 order 는 무시하고 다음 메시지로 간다.
+	 * 이 변환이 여기 한 곳에만 있어야 그 성질이 유지된다 — 다른 데서 {@code valueOf} 를 쓰면
+	 * 거기서 파티션이 막힌다.
+	 */
+	public static Optional<EventType> fromWire(String wireValue) {
+		return Optional.ofNullable(wireValue).map(BY_WIRE_VALUE::get);
+	}
+
+	/** 회신 토픽으로 오는 타입인지. 자기가 발행하는 커맨드가 회신 토픽에 섞여 와도 걸러낸다. */
+	public boolean isSagaReply() {
+		return Topics.ORDER_SAGA_REPLIES.equals(topic);
 	}
 }

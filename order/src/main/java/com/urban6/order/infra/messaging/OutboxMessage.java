@@ -11,7 +11,12 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.PostPersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
+
+import org.springframework.data.domain.Persistable;
 
 /**
  * {@code outbox} 테이블 매핑. Debezium Outbox Event Router 가 읽어가는 형태다.
@@ -24,7 +29,7 @@ import jakarta.persistence.Table;
  */
 @Entity
 @Table(name = "outbox")
-public class OutboxMessage {
+public class OutboxMessage implements Persistable<UUID> {
 
 	/**
 	 * 이벤트 고유 식별자. {@code EventEnvelope.eventId} 와 같은 값이며 컨슈머 멱등 키
@@ -83,8 +88,27 @@ public class OutboxMessage {
 		return new OutboxMessage(eventId, aggregateType, aggregateId, eventType, payload);
 	}
 
+	@Override
 	public UUID getId() {
 		return id;
+	}
+
+	/**
+	 * {@code id} 를 코드에서 직접 할당하므로 Spring Data 가 새 엔티티임을 알 수 없다.
+	 * 그냥 두면 {@code save()} 가 {@code merge()} 로 가서 주문 한 건마다 쓸데없는 SELECT 가 하나 더 나간다.
+	 */
+	@Transient
+	private boolean isNew = true;
+
+	@Override
+	public boolean isNew() {
+		return isNew;
+	}
+
+	@PostPersist
+	@PostLoad
+	void markNotNew() {
+		this.isNew = false;
 	}
 
 	public String getAggregateType() {

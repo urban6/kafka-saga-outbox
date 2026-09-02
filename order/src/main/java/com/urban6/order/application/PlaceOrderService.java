@@ -5,12 +5,14 @@ import com.urban6.order.api.dto.PlaceOrderResponse;
 import com.urban6.order.domain.Order;
 import com.urban6.order.domain.OutOfStockException;
 import com.urban6.order.domain.Product;
+import com.urban6.order.domain.SagaInstance;
 import com.urban6.order.infra.messaging.ApprovePaymentCommand;
 import com.urban6.order.infra.messaging.EventEnvelope;
 import com.urban6.order.infra.messaging.EventType;
 import com.urban6.order.infra.messaging.OutboxWriter;
 import com.urban6.order.infra.persistence.OrderRepository;
 import com.urban6.order.infra.persistence.ProductRepository;
+import com.urban6.order.infra.persistence.SagaInstanceRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -30,21 +32,24 @@ public class PlaceOrderService {
 
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
+    private final SagaInstanceRepository sagaInstanceRepository;
     private final OrderNoGenerator orderNoGenerator;
     private final OutboxWriter outboxWriter;
 
     public PlaceOrderService(OrderRepository orderRepository,
                              ProductRepository productRepository,
+                             SagaInstanceRepository sagaInstanceRepository,
                              OrderNoGenerator orderNoGenerator,
                              OutboxWriter outboxWriter) {
         this.orderRepository = orderRepository;
         this.productRepository = productRepository;
+        this.sagaInstanceRepository = sagaInstanceRepository;
         this.orderNoGenerator = orderNoGenerator;
         this.outboxWriter = outboxWriter;
     }
 
     /**
-     * 주문 생성 · 재고 예약 · 결제 요청 적재를 <b>하나의 로컬 트랜잭션</b>으로 처리한다.
+     * 주문 생성 · 재고 예약 · <b>사가 시작 기록</b> · 결제 요청 적재를 하나의 로컬 트랜잭션으로 처리한다.
      * <p>
      * 재고가 별도 서비스였을 때는 뒷 라인 예약이 실패해도 앞 라인이 이미 커밋돼 있어서
      * 상쇄 UPDATE 로 되돌려야 했다. 같은 DB 로 들어온 지금은 <b>예외를 던지면 전부 롤백</b>된다.
@@ -67,14 +72,18 @@ public class PlaceOrderService {
         reserveStock(quantityByProduct);
         orderRepository.save(order);
 
+        // 커맨드를 적재하기 전에 "무엇을 기다리는지"를 먼저 남긴다.
+        // 같은 트랜잭션이라 순서 자체가 중요한 건 아니지만, 읽는 사람에게 인과가 드러난다.
+        SagaInstance saga = sagaInstanceRepository.save(SagaInstance.start(orderNo));
+
         outboxWriter.append("Order", EventEnvelope.of(
                 EventType.APPROVE_PAYMENT,
                 orderNo,
                 new ApprovePaymentCommand(orderNo, order.getTotalAmount())
         ));
 
-        log.info("order placed. orderNo={} customerId={} totalAmount={}",
-                orderNo, request.customerId(), order.getTotalAmount());
+        log.info("order placed. orderNo={} sagaId={} customerId={} totalAmount={}",
+                orderNo, saga.getSagaId(), request.customerId(), order.getTotalAmount());
         return new PlaceOrderResponse(orderNo, order.getStatus(), order.getTotalAmount());
     }
 
