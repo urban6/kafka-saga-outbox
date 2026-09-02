@@ -38,3 +38,6 @@ out/
 
 ### 프로젝트 문서 — 공개 전까지 로컬에만 둔다
 docs/
+
+### Claude Code 지침 — 로컬에만 둔다
+CLAUDE.md
