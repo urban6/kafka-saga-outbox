@@ -1,17 +1,18 @@
 USE payment_db;
 
 CREATE TABLE payment (
-                         payment_id          VARCHAR(64)   NOT NULL,
-                         order_no            VARCHAR(64)   NOT NULL,
-                         amount              DECIMAL(19,4) NOT NULL,
-                         status              VARCHAR(32)   NOT NULL,
-                         pg_transaction_id   VARCHAR(128)  NULL,
-                         failure_reason      VARCHAR(255)  NULL,
-                         version             BIGINT        NOT NULL DEFAULT 0,
-                         created_at          DATETIME(6)   NOT NULL,
-                         updated_at          DATETIME(6)   NOT NULL,
+                         payment_id      VARCHAR(64)   NOT NULL,
+                         order_no        VARCHAR(64)   NOT NULL,
+                         amount          DECIMAL(19,4) NOT NULL,
+                         status          VARCHAR(32)   NOT NULL,
+                         payment_key     VARCHAR(128)  NULL,
+                         failure_code    VARCHAR(64)   NULL,
+                         failure_reason  VARCHAR(255)  NULL,
+                         created_at      DATETIME(6)   NOT NULL,
+                         updated_at      DATETIME(6)   NOT NULL,
                          PRIMARY KEY (payment_id),
-                         UNIQUE KEY uk_order_no (order_no)
+                         UNIQUE KEY uk_order_no (order_no),
+                         KEY idx_in_doubt (status, updated_at)
 ) ENGINE=InnoDB;
 
 CREATE TABLE outbox (

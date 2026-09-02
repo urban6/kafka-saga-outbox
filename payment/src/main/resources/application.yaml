@@ -1,29 +1,64 @@
+server:
+  port: 8082
+
 spring:
   application:
-    name: payment
+    name: payment-service
 
   datasource:
-    url: jdbc:mariadb://localhost:3306/payment_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD}
-    driver-class-name: org.mariadb.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/payment_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: payment_user
+    password: payment_pw
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 3000
 
   jpa:
     hibernate:
-      # 스키마는 table.sql로 관리한다. 애플리케이션이 DDL을 건드리지 않는다.
-      ddl-auto: none
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          # Debezium 이 datetime 컬럼을 UTC 로 읽어 메시지 타임스탬프로 쓴다.
+          # KST 로 저장하면 메시지가 9시간 미래로 찍힌다.
+          time_zone: UTC
     open-in-view: false
 
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    consumer:
-      group-id: payment
-      auto-offset-reset: earliest
-    producer:
-      acks: all
+  jackson:
+    default-property-inclusion: non_null
 
-server:
-  port: 8082
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      # consumed_message.consumer_group 에 그대로 들어가는 값.
+      # 바꾸면 과거 처리 이력을 못 찾아 전부 재처리된다.
+      group-id: payment-service
+      # true 면 poll 직후 커밋되어, 처리 중 죽으면 그 메시지는 영영 사라진다.
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+      max-poll-records: 50
+    # producer 설정은 두지 않는다. 회신은 KafkaTemplate 이 아니라
+    # Outbox INSERT -> Debezium 으로 나가므로 이 서비스에 프로듀서가 없다.
+
+# PG 연동. Mock 이 같은 앱(8082) 안에 있지만 실제 HTTP 로 부른다 —
+# 빈을 직접 주입하면 타임아웃·연결 끊김이 재현되지 않아 방어 코드를 검증할 수 없다.
+pg:
+  base-url: http://localhost:8082
+  connect-timeout: 1s
+  read-timeout: 3s
+
+# Mock PG 장애 주입. 전부 0 이면 지금과 똑같이 동작한다.
+# 검증할 때는 rate 를 1.0 으로 둔다 — 확률로는 재현이 안 된다.
+mockpg:
+  reject-rate: 0.0    # 카드사 거절. 확정된 실패
+  error-rate: 0.0     # 500. 선점을 되돌리므로 재시도하면 성공한다
+  delay-rate: 0.0     # 아래 delay 를 넣을 비율
+  delay: 0s           # pg.read-timeout(3s) 보다 크면 클라이언트는 타임아웃, PG 는 승인 = in-doubt
+
+logging:
+  level:
+    com.urban6: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.springframework.kafka: INFO
