@@ -1,29 +1,51 @@
+server:
+  port: 8084
+
 spring:
   application:
-    name: inventory
+    name: inventory-service
 
   datasource:
-    url: jdbc:mariadb://localhost:3306/inventory_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD}
+    url: jdbc:mariadb://localhost:3306/inventory_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: inventory_user
+    password: inventory_pw
     driver-class-name: org.mariadb.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 3000
 
   jpa:
     hibernate:
-      # 스키마는 table.sql로 관리한다. 애플리케이션이 DDL을 건드리지 않는다.
-      ddl-auto: none
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          # 이 DB 의 시각 컬럼은 예외 없이 UTC 로 저장한다.
+          # Debezium 이 datetime 컬럼을 UTC 로 읽어 Kafka 메시지 타임스탬프로 쓰기 때문에,
+          # KST 를 넣으면 메시지가 9시간 미래로 찍힌다.
+          time_zone: UTC
     open-in-view: false
 
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    consumer:
-      group-id: inventory
-      auto-offset-reset: earliest
-    producer:
-      acks: all
+  jackson:
+    default-property-inclusion: non_null
 
-server:
-  port: 8083
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      # consumed_message.consumer_group 에 그대로 들어가는 값.
+      # 이걸 바꾸면 과거에 처리한 메시지의 멱등 기록을 못 찾아 전부 재처리된다.
+      group-id: inventory-service
+      # true 면 poll 직후 커밋되어, 처리 중 죽으면 그 메시지는 영영 사라진다.
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+      max-poll-records: 50
+    # key/value Deserializer 는 여기 두지 않는다. Step 3 에서 ConsumerFactory 를 직접 만든다.
+    # JacksonJsonDeserializer 에 tolerant reader 설정을 넣은 JsonMapper 를 주입해야 하는데
+    # 프로퍼티만으로는 그게 안 된다.
+
+logging:
+  level:
+    com.urban6: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.springframework.kafka: INFO
