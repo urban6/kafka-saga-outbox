@@ -22,11 +22,8 @@ public class OrderController {
     }
 
     @PostMapping
-    public ResponseEntity<PlaceOrderResponse> placeOrder(
-            @Valid @RequestBody PlaceOrderRequest request) {
-
+    public ResponseEntity<PlaceOrderResponse> placeOrder(@Valid @RequestBody PlaceOrderRequest request) {
         PlaceOrderResponse response = placeOrderService.place(request);
-
         return ResponseEntity
                 .status(HttpStatus.ACCEPTED)
                 .body(response);

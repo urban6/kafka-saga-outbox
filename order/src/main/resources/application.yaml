@@ -21,7 +21,12 @@ spring:
       hibernate:
         format_sql: true
         jdbc:
-          time_zone: Asia/Seoul
+          # 이 DB 의 시각 컬럼은 예외 없이 UTC 로 저장한다.
+          # Debezium 이 datetime 컬럼을 UTC 로 읽어 Kafka 메시지 타임스탬프로 쓰기 때문에,
+          # KST 를 넣으면 메시지가 9시간 미래로 찍힌다.
+          # Instant 는 Hibernate 가 TIMESTAMP_UTC 로 매핑해 이 설정과 무관하게 UTC 로 쓴다.
+          # 이 줄은 나중에 LocalDateTime 필드가 섞여 들어와도 규약이 유지되게 하는 방어선이다.
+          time_zone: UTC
     open-in-view: false
 
   jackson:
