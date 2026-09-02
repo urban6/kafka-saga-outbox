@@ -1,4 +1,4 @@
-package com.urban6.event;
+package com.urban6.order.infra.messaging;
 
 /**
  * 사가에서 오가는 메시지 종류.

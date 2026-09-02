@@ -1,4 +1,4 @@
-package com.urban6.event;
+package com.urban6.order.infra.messaging;
 
 /** docs/topic.md 의 토픽 이름을 코드 한 곳에서만 쓰기 위한 상수 모음. */
 public final class Topics {

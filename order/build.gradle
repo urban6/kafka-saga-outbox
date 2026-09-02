@@ -3,8 +3,10 @@ plugins {
 }
 
 dependencies {
-	implementation project(':common:event')
-	implementation project(':common:outbox')
+	// EventEnvelope 의 @JsonCreator/@JsonProperty 용. 애노테이션 아티팩트는 Jackson 2/3 가
+	// 같은 패키지(com.fasterxml.jackson.annotation)를 공유하므로 이것만 있으면 된다.
+	// databind(tools.jackson) 는 spring-boot-starter-jackson 이 이미 끌어온다.
+	implementation 'com.fasterxml.jackson.core:jackson-annotations'
 
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'

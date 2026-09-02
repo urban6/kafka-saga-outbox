@@ -1,4 +1,4 @@
-package com.urban6.outbox;
+package com.urban6.order.infra.messaging;
 
 import java.time.Instant;
 import java.util.UUID;

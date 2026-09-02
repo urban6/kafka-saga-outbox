@@ -1,12 +1,10 @@
-package com.urban6.outbox;
+package com.urban6.order.infra.messaging;
 
 import java.time.Instant;
 import java.util.UUID;
 
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-
-import com.urban6.event.EventType;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

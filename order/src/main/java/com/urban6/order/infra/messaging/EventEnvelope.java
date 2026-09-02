@@ -1,4 +1,4 @@
-package com.urban6.event;
+package com.urban6.order.infra.messaging;
 
 import java.time.Instant;
 import java.util.Map;

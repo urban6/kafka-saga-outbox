@@ -1,11 +1,9 @@
-package com.urban6.outbox;
+package com.urban6.order.infra.messaging;
 
 import java.time.Instant;
 import java.util.UUID;
 
 import org.springframework.jdbc.core.JdbcTemplate;
-
-import com.urban6.event.EventType;
 
 /**
  * 컨슈머 중복 처리 방지.

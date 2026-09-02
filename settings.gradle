@@ -1,4 +1,3 @@
 rootProject.name = 'kafka-saga-outbox'
 
 include 'order', 'payment', 'inventory'
-include 'common:event', 'common:outbox'
