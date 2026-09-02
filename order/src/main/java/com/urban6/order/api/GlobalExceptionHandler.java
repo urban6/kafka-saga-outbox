@@ -1,5 +1,6 @@
 package com.urban6.order.api;
 
+import com.urban6.order.domain.OutOfStockException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -37,6 +38,15 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException e) {
         return ResponseEntity.badRequest()
                 .body(ErrorResponse.of("INVALID_ARGUMENT", e.getMessage(), List.of()));
+    }
+
+    @ExceptionHandler(OutOfStockException.class)
+    public ResponseEntity<ErrorResponse> handleOutOfStock(OutOfStockException e) {
+        log.warn("order rejected. {}", e.getMessage());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("OUT_OF_STOCK", "재고가 부족한 상품이 있습니다",
+                        List.of(e.getProductId() + ": " + e.getRequestedQuantity() + "개 요청")));
     }
 
     @ExceptionHandler(Exception.class)
