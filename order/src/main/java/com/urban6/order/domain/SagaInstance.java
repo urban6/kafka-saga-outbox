@@ -30,9 +30,6 @@ import java.util.UUID;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SagaInstance implements Persistable<UUID> {
 
-	/** 사가 종류. 지금은 주문 사가 하나뿐이라 사실상 상수다. */
-	public static final String ORDER_SAGA = "ORDER_SAGA";
-
 	@Id
 	@JdbcTypeCode(SqlTypes.CHAR)
 	@Column(name = "saga_id", nullable = false, length = 36)
@@ -41,9 +38,6 @@ public class SagaInstance implements Persistable<UUID> {
 	/** 사가를 주문에 묶는 비즈니스 키. 회신 메시지의 aggregateId 로 이 행을 찾는다. */
 	@Column(name = "order_no", nullable = false, unique = true, length = 64)
 	private String orderNo;
-
-	@Column(name = "saga_type", nullable = false, length = 64)
-	private String sagaType;
 
 	@Enumerated(EnumType.STRING)
 	@Column(name = "current_step", nullable = false, length = 64)
@@ -91,7 +85,6 @@ public class SagaInstance implements Persistable<UUID> {
 	private SagaInstance(String orderNo, String customerId, BigDecimal amount) {
 		this.sagaId = UUID.randomUUID();
 		this.orderNo = orderNo;
-		this.sagaType = ORDER_SAGA;
 		this.currentStep = SagaStep.APPROVE_PAYMENT;
 		this.status = SagaStatus.STARTED;
 		this.payload = new LinkedHashMap<>();
@@ -110,11 +103,6 @@ public class SagaInstance implements Persistable<UUID> {
 	 */
 	public static SagaInstance start(String orderNo, String customerId, BigDecimal amount) {
 		return new SagaInstance(orderNo, customerId, amount);
-	}
-
-	/** 방어선 3겹째. 지금 기다리는 단계의 회신이 아니면 무시한다. */
-	public boolean isCurrentStep(SagaStep step) {
-		return this.currentStep == step;
 	}
 
 	public boolean isTerminated() {
