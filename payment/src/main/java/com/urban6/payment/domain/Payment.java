@@ -25,10 +25,9 @@ import java.time.Instant;
  * 그 유니크 제약이 이 서비스의 멱등 장치다. 같은 주문에 대한 승인 요청이 두 번 들어와도
  * 두 번째 INSERT 는 제약 위반으로 막힌다.
  *
- * 상태 전이 메서드를 두지 않았다. 지금은 PG 응답을 받은 뒤 결과와 함께 INSERT 하므로
- * 전이 자체가 없다. 사가에 붙어 outbox 회신까지 한 트랜잭션으로 묶이면 그때 리포지토리의
- * 조건부 UPDATE 로 만든다 — 엔티티에 approve() 를 두면 "조회 → 검사 → 저장"이 되어
- * 응답이 두 번 들어올 때 둘 다 통과한다.
+ * 상태 전이 메서드를 두지 않았다. 승인 경로는 PG 응답을 받은 뒤 결과와 함께 INSERT 하고,
+ * in-doubt 해소는 리포지토리의 조건부 UPDATE(settleApproved/settleRejected)로 한다.
+ * 엔티티에 approve() 를 두면 "조회 → 검사 → 저장"이 되어 응답이 두 번 들어올 때 둘 다 통과한다.
  */
 @Entity
 @Table(name = "payment")
@@ -56,7 +55,7 @@ public class Payment implements Persistable<String> {
 	private PaymentStatus status;
 
 	/**
-	 * PG 가 응답으로 확인해준 결제 식별자. 결제창이 발급해 커맨드로 넘어온 키가 정상이면 그대로 돌아오지만,
+	 * PG 가 응답으로 확인해준 결제 식별자. 보통은 빌링 청구 응답에서 오고,
 	 * ALREADY_PROCESSED_PAYMENT 처럼 이전 시도가 성사된 경우엔 조회로 가져온 그때의 키가 들어온다.
 	 * 저장하는 건 언제나 PG 가 확인해준 값이다.
 	 */

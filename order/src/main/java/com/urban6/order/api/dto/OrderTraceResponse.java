@@ -37,7 +37,7 @@ public record OrderTraceResponse(
         List<Item> items,
 
         /**
-         * 사가가 없을 수 있다. 재고를 inventory 서비스가 갖고 있던 시절의 주문이 그렇다.
+         * 사가가 없을 수 있다. 주문과 사가는 한 트랜잭션이라 정상 경로에선 나오지 않는다.
          * default-property-inclusion: non_null 이라 그럴 땐 이 블록이 통째로 빠지는데,
          * 빠졌다는 사실 자체가 진단 정보다 — 커맨드를 기다리는 주체가 없는 주문이다.
          */

@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
- * 상품과 재고. inventory 서비스를 없애면서 order 로 흡수했다.
+ * 상품과 재고. 재고를 별도 서비스로 두지 않고 order 안에 뒀다.
  *
  * 재고 증감은 이 엔티티의 메서드가 아니라 ProductRepository 의 조건부 UPDATE 로 한다.
  * 엔티티에 reserve() 를 두면 "조회 → 검사 → 저장" 이 되는데, 그 사이를 다른 트랜잭션이

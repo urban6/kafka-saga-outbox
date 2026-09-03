@@ -98,8 +98,7 @@ public class SagaInstance implements Persistable<UUID> {
 	 * 주문 접수 트랜잭션에서 호출한다. 첫 단계는 언제나 결제 승인이다.
 	 *
 	 * payload 에는 커맨드를 다시 만들 수 있는 것(customerId, amount)을 남긴다.
-	 * 재시작 후 재발행이든 보상이든 여기 남은 것으로 해야 한다. paymentKey 는 시작 시점엔 없다 —
-	 * 원격 보상(CANCEL_PAYMENT)은 orderNo 로 보내고 payment 가 자기 키를 찾는 쪽이 맞다.
+	 * 재시작 후 재발행은 여기 남은 것으로 해야 한다. paymentKey 는 시작 시점엔 없다.
 	 */
 	public static SagaInstance start(String orderNo, String customerId, BigDecimal amount) {
 		return new SagaInstance(orderNo, customerId, amount);
