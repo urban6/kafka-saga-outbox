@@ -1,4 +1,4 @@
-package com.urban6.payment.infra.client;
+package com.urban6.payment.infra.client.exception;
 
 /**
  * PG 가 "지금은 안 되지만 다시 하면 될 수 있다" 고 답한 경우.

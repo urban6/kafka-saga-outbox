@@ -1,8 +1,11 @@
-package com.urban6.order.domain;
+package com.urban6.order.domain.exception;
+
+import lombok.Getter;
 
 /**
  * 재고 부족. 요청도 서버도 멀쩡하고 지금 이 순간의 상태 때문에 실패한 것이라 400 이 아니라 409 다.
  */
+@Getter
 public class OutOfStockException extends RuntimeException {
 
     private final String productId;
@@ -14,11 +17,4 @@ public class OutOfStockException extends RuntimeException {
         this.requestedQuantity = requestedQuantity;
     }
 
-    public String getProductId() {
-        return productId;
-    }
-
-    public int getRequestedQuantity() {
-        return requestedQuantity;
-    }
 }

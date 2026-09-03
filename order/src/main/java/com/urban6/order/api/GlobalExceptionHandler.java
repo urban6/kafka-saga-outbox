@@ -1,7 +1,7 @@
 package com.urban6.order.api;
 
-import com.urban6.order.application.IdempotencyConflictException;
-import com.urban6.order.domain.OutOfStockException;
+import com.urban6.order.application.exception.IdempotencyConflictException;
+import com.urban6.order.domain.exception.OutOfStockException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

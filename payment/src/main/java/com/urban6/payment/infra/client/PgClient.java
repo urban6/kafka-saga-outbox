@@ -1,5 +1,6 @@
 package com.urban6.payment.infra.client;
 
+import com.urban6.payment.infra.client.exception.PgCallException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;

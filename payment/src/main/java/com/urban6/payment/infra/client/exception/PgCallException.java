@@ -1,4 +1,4 @@
-package com.urban6.payment.infra.client;
+package com.urban6.payment.infra.client.exception;
 
 /**
  * PG 가 에러 본문으로 거절한 호출 중 결론으로 번역할 수 없는 것.

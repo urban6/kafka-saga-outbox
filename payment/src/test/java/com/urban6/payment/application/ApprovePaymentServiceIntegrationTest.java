@@ -1,6 +1,6 @@
 package com.urban6.payment.application;
 
-import com.urban6.payment.infra.client.PgRetryableException;
+import com.urban6.payment.infra.client.exception.PgRetryableException;
 import com.urban6.payment.support.PaymentIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

@@ -1,7 +1,7 @@
 package com.urban6.payment.api;
 
-import com.urban6.payment.infra.client.PgCallException;
-import com.urban6.payment.infra.client.PgRetryableException;
+import com.urban6.payment.infra.client.exception.PgCallException;
+import com.urban6.payment.infra.client.exception.PgRetryableException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

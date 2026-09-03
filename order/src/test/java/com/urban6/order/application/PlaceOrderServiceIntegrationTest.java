@@ -2,8 +2,9 @@ package com.urban6.order.application;
 
 import com.urban6.order.api.dto.PlaceOrderRequest;
 import com.urban6.order.api.dto.PlaceOrderResponse;
+import com.urban6.order.application.exception.IdempotencyConflictException;
 import com.urban6.order.domain.OrderStatus;
-import com.urban6.order.domain.OutOfStockException;
+import com.urban6.order.domain.exception.OutOfStockException;
 import com.urban6.order.support.OrderIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

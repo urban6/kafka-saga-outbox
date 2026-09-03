@@ -2,10 +2,11 @@ package com.urban6.order.application;
 
 import com.urban6.order.api.dto.PlaceOrderRequest;
 import com.urban6.order.api.dto.PlaceOrderResponse;
+import com.urban6.order.application.exception.IdempotencyConflictException;
 import com.urban6.order.domain.Order;
-import com.urban6.order.domain.OutOfStockException;
 import com.urban6.order.domain.Product;
 import com.urban6.order.domain.SagaInstance;
+import com.urban6.order.domain.exception.OutOfStockException;
 import com.urban6.order.infra.messaging.ApprovePaymentCommand;
 import com.urban6.order.infra.messaging.EventEnvelope;
 import com.urban6.order.infra.messaging.EventType;

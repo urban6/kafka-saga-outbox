@@ -1,4 +1,4 @@
-package com.urban6.order.application;
+package com.urban6.order.application.exception;
 
 /**
  * 같은 Idempotency-Key 로 다른 요청 본문이 왔다.

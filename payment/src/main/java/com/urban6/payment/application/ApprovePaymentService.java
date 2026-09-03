@@ -4,7 +4,7 @@ import com.urban6.payment.domain.BillingKey;
 import com.urban6.payment.domain.Payment;
 import com.urban6.payment.infra.client.PgChargeResult;
 import com.urban6.payment.infra.client.PgClient;
-import com.urban6.payment.infra.client.PgRetryableException;
+import com.urban6.payment.infra.client.exception.PgRetryableException;
 import com.urban6.payment.infra.persistence.BillingKeyRepository;
 import com.urban6.payment.infra.persistence.PaymentRepository;
 import lombok.RequiredArgsConstructor;
