@@ -39,8 +39,21 @@ subprojects {
 	}
 
 	tasks.named('test') {
-		useJUnitPlatform()
+		// 통합 테스트는 도커가 필요하다. build 를 도커 없이 수초에 끝내려고 태그로 떼어낸다 —
+		// 단위 테스트가 느려지는 순간 아무도 안 돌린다.
+		useJUnitPlatform { excludeTags 'integration' }
 		// 기본값(short)은 실패한 테스트 이름과 예외 위치까지만 찍고 단언 메시지는 뺀다.
 		testLogging { events 'failed'; exceptionFormat 'full' }
+	}
+
+	/** 도커가 떠 있어야 한다. `./gradlew integrationTest` 로 따로 돌린다. */
+	tasks.register('integrationTest', Test) {
+		group = 'verification'
+		description = "@Tag('integration') 이 붙은 테스트만 실행한다. 도커 필요."
+		testClassesDirs = sourceSets.test.output.classesDirs
+		classpath = sourceSets.test.runtimeClasspath
+		useJUnitPlatform { includeTags 'integration' }
+		shouldRunAfter tasks.named('test')
+		testLogging { events 'passed', 'failed'; exceptionFormat 'full' }
 	}
 }
