@@ -1,5 +1,6 @@
 package com.urban6.order.api;
 
+import com.urban6.order.application.IdempotencyConflictException;
 import com.urban6.order.domain.OrderNotFoundException;
 import com.urban6.order.domain.OutOfStockException;
 import org.slf4j.Logger;
@@ -7,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -33,6 +35,26 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.badRequest()
                 .body(ErrorResponse.of("INVALID_REQUEST", "요청 값이 올바르지 않습니다", details));
+    }
+
+    /** 헤더 누락. {@code Idempotency-Key} 가 빠진 주문 요청이 여기로 온다. */
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ResponseEntity<ErrorResponse> handleMissingHeader(MissingRequestHeaderException e) {
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.of("MISSING_HEADER", "필수 헤더가 없습니다", List.of(e.getHeaderName())));
+    }
+
+    /**
+     * 같은 {@code Idempotency-Key} 에 다른 요청 본문이 왔다. 요청 자체는 문법적으로 멀쩡하므로
+     * 400 이 아니라 422 다 — 클라이언트가 키를 재사용한 것이고, 고칠 곳은 본문이 아니라 키다.
+     */
+    @ExceptionHandler(IdempotencyConflictException.class)
+    public ResponseEntity<ErrorResponse> handleIdempotencyConflict(IdempotencyConflictException e) {
+        log.warn("idempotency key reused. {}", e.getMessage());
+
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+                .body(ErrorResponse.of("IDEMPOTENCY_KEY_REUSED",
+                        "같은 Idempotency-Key 로 다른 주문을 보낼 수 없습니다", List.of(e.getIdempotencyKey())));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

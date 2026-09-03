@@ -74,6 +74,17 @@ CREATE TABLE consumed_message (
                                   KEY idx_processed (processed_at)
 ) ENGINE=InnoDB;
 
+-- API 멱등. 클라이언트가 만든 Idempotency-Key 로 같은 주문 요청의 재시도를 흡수한다.
+-- consumed_message 와 달리 결과(order_no)를 함께 보관한다 — HTTP 는 중복이어도 응답을 돌려줘야 한다.
+CREATE TABLE api_idempotency (
+                                 idempotency_key VARCHAR(128)  NOT NULL,
+                                 request_hash    CHAR(64)      NOT NULL,
+                                 order_no        VARCHAR(64)   NOT NULL,
+                                 created_at      DATETIME(6)   NOT NULL,
+                                 PRIMARY KEY (idempotency_key),
+                                 KEY idx_created (created_at)
+) ENGINE=InnoDB;
+
 INSERT INTO product (product_id, name, price, total_quantity, created_at, updated_at) VALUES
     ('P-1001', '기계식 키보드', 129000, 100, NOW(6), NOW(6)),
     ('P-1002', '무선 마우스',    45000, 100, NOW(6), NOW(6)),
