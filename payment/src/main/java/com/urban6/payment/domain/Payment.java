@@ -37,9 +37,9 @@ import java.time.Instant;
 public class Payment implements Persistable<String> {
 
 	/**
-	 * 우리가 발급하는 결제 식별자. 이 값을 그대로 PG 의 {@code paymentKey} 로 보낸다.
+	 * 우리가 발급하는 결제 식별자. PG 에는 보내지 않는 내부 값이다.
 	 * <p>
-	 * {@code order_no} 처럼 형식을 갖추지 않는 이유는 고객에게 노출되지 않는 내부 값이기 때문이다.
+	 * {@code order_no} 처럼 형식을 갖추지 않는 이유는 고객에게 노출되지 않기 때문이다.
 	 */
 	@Id
 	@Column(name = "payment_id", nullable = false, length = 64)
@@ -56,10 +56,9 @@ public class Payment implements Persistable<String> {
 	private PaymentStatus status;
 
 	/**
-	 * PG 가 응답으로 확인해준 결제 식별자.
-	 * <p>
-	 * 지금은 우리가 보낸 {@code paymentId} 와 같은 값이 돌아온다. 실제 PG 로 바꾸면
-	 * 결제창이 발급한 다른 값이 들어오므로 별도 컬럼으로 둔다.
+	 * PG 가 응답으로 확인해준 결제 식별자. 결제창이 발급해 커맨드로 넘어온 키가 정상이면 그대로 돌아오지만,
+	 * {@code ALREADY_PROCESSED_PAYMENT} 처럼 이전 시도가 성사된 경우엔 조회로 가져온 그때의 키가 들어온다.
+	 * 저장하는 건 언제나 <b>PG 가 확인해준 값</b>이다.
 	 */
 	@Column(name = "payment_key", length = 128)
 	private String paymentKey;

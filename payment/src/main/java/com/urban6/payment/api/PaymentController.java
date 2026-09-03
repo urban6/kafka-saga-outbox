@@ -36,7 +36,7 @@ public class PaymentController {
 	@PostMapping
 	public PaymentResponse approve(@Valid @RequestBody ApproveRequest request) {
 		return PaymentResponse.from(
-				approvePaymentService.approve(request.orderNo(), request.amount()));
+				approvePaymentService.approve(request.orderNo(), request.paymentKey(), request.amount()));
 	}
 
 	@GetMapping("/{orderNo}")

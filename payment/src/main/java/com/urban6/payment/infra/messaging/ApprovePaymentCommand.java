@@ -10,6 +10,8 @@ import java.math.BigDecimal;
  */
 public record ApprovePaymentCommand(
 		String orderNo,
-		BigDecimal amount
+		BigDecimal amount,
+		/** 결제창이 발급한 키. order 는 통과만 시켰고, PG 는 이 키가 아니면 승인하지 않는다. */
+		String paymentKey
 ) {
 }
