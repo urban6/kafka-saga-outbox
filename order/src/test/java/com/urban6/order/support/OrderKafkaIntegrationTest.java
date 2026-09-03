@@ -108,8 +108,31 @@ public abstract class OrderKafkaIntegrationTest {
 		}
 	}
 
+	/**
+	 * 행이 아직 없으면 {@code null} 을 준다. <b>{@code queryForObject} 를 쓰지 않는 이유</b>가 이거다 —
+	 * 비동기라 폴링 중에는 행이 없는 게 정상인데, 예외를 던지면 awaitility 가 그 자리에서 실패한다.
+	 */
 	protected String statusOfOrder(String orderNo) {
-		return jdbcTemplate.queryForObject("select status from orders where order_no = ?", String.class, orderNo);
+		return jdbcTemplate.queryForList("select status from orders where order_no = ?", String.class, orderNo)
+				.stream().findFirst().orElse(null);
+	}
+
+	protected int totalOf(String productId) {
+		Integer total = jdbcTemplate.queryForObject(
+				"select total_quantity from product where product_id = ?", Integer.class, productId);
+		return total == null ? 0 : total;
+	}
+
+	/**
+	 * <b>전역 카운트를 쓰지 않는다.</b> 리스너가 비동기라 앞 테스트의 미처리 메시지가
+	 * {@code @BeforeEach} 정리 직후 도착할 수 있고, 그러면 전역 합계가 흔들린다.
+	 * 주문번호는 테스트마다 새로 만들므로 이 범위 안에서는 결정적이다.
+	 */
+	protected int countForOrder(String table, String orderNo) {
+		String column = "outbox".equals(table) ? "aggregate_id" : "order_no";
+		Integer count = jdbcTemplate.queryForObject(
+				"select count(*) from " + table + " where " + column + " = ?", Integer.class, orderNo);
+		return count == null ? 0 : count;
 	}
 
 	protected int reservedOf(String productId) {

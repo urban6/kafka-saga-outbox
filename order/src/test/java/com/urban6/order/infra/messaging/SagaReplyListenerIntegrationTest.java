@@ -129,6 +129,7 @@ class SagaReplyListenerIntegrationTest extends OrderKafkaIntegrationTest {
 	@DisplayName("같은 eventId 로 두 번 발행해도 한 번만 처리된다")
 	void duplicateEventIdIsConsumedOnce() {
 		String orderNo = placedOrder(5);
+		int totalBefore = totalOf("P-1001");
 		String eventId = UUID.randomUUID().toString();
 		String json = envelope(eventId, "PAYMENT_APPROVED", orderNo, ",\"paymentKey\":\"tgen_x\"");
 
@@ -136,12 +137,12 @@ class SagaReplyListenerIntegrationTest extends OrderKafkaIntegrationTest {
 		publishReply(orderNo, json);
 
 		awaitOrder(orderNo, "COMPLETED");
-		// 두 번 확정됐다면 total 이 90 이 됐을 것이다. 멱등 테이블이 두 번째를 막는다.
-		await().atMost(TIMEOUT).untilAsserted(() -> {
-			assertThat(countOf("consumed_message")).isEqualTo(1);
-			assertThat(jdbcTemplate.queryForObject(
-					"select total_quantity from product where product_id = 'P-1001'", Integer.class))
-					.isEqualTo(95);
+		// 두 번째 메시지가 늦게 도착할 수 있으니 잠깐 더 보고도 그대로여야 한다.
+		await().during(Duration.ofSeconds(2)).atMost(TIMEOUT).untilAsserted(() -> {
+			// 두 번 확정됐다면 10이 빠졌을 것이다. 멱등 테이블이 두 번째를 막는다.
+			assertThat(totalBefore - totalOf("P-1001")).isEqualTo(5);
+			// 도메인 이벤트도 하나여야 한다 — 둘이면 외부가 완료를 두 번 본다.
+			assertThat(countForOrder("outbox", orderNo)).isEqualTo(2); // APPROVE_PAYMENT + ORDER_COMPLETED
 		});
 	}
 
