@@ -11,6 +11,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -137,4 +143,52 @@ class PlaceOrderServiceIntegrationTest extends OrderIntegrationTest {
 		assertThat(countOf("orders")).isEqualTo(1);
 		assertThat(reservedOf("P-1001")).isEqualTo(1);
 	}
+
+	/**
+	 * 상품 순서가 엇갈린 동시 주문. 재고 UPDATE 를 요청 순서대로 돌리면 두 트랜잭션이
+	 * 서로 상대가 쥔 행을 기다려 InnoDB 데드락이 나고, 진 쪽이 500 을 받는다.
+	 *
+	 * 변이 검증: aggregateQuantities 의 TreeMap 을 LinkedHashMap 으로
+	 * 되돌리면 CannotAcquireLockException 으로 깨진다.
+	 */
+	@Test
+	@DisplayName("상품 순서가 엇갈린 동시 주문이 데드락 없이 모두 성공한다")
+	void survivesCrossOrderedConcurrentReservations() throws Exception {
+		int rounds = 20;
+		PlaceOrderRequest forward = new PlaceOrderRequest("C-1", List.of(
+				new PlaceOrderRequest.Item("P-1001", 1),
+				new PlaceOrderRequest.Item("P-1002", 1)));
+		PlaceOrderRequest backward = new PlaceOrderRequest("C-2", List.of(
+				new PlaceOrderRequest.Item("P-1002", 1),
+				new PlaceOrderRequest.Item("P-1001", 1)));
+
+		ExecutorService pool = Executors.newFixedThreadPool(2);
+		try {
+			for (int round = 0; round < rounds; round++) {
+				// 두 스레드를 같은 지점에서 출발시켜야 락 구간이 실제로 겹친다.
+				CyclicBarrier gate = new CyclicBarrier(2);
+				Future<Void> a = pool.submit(placing(gate, forward));
+				Future<Void> b = pool.submit(placing(gate, backward));
+				a.get(15, TimeUnit.SECONDS);
+				b.get(15, TimeUnit.SECONDS);
+			}
+		}
+		finally {
+			pool.shutdownNow();
+		}
+
+		// 데드락으로 한쪽이 롤백됐다면 여기서 수량이 모자란다.
+		assertThat(countOf("orders")).isEqualTo(rounds * 2);
+		assertThat(reservedOf("P-1001")).isEqualTo(rounds * 2);
+		assertThat(reservedOf("P-1002")).isEqualTo(rounds * 2);
+	}
+
+	private Callable<Void> placing(CyclicBarrier gate, PlaceOrderRequest request) {
+		return () -> {
+			gate.await(15, TimeUnit.SECONDS);
+			placeOrderService.place(newKey(), request);
+			return null;
+		};
+	}
+
 }

@@ -8,9 +8,9 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 @Entity
@@ -74,11 +74,14 @@ public class Order {
      *
      * 예약할 때 합쳐서 잡았으므로 확정·해제도 합쳐서 해야 대칭이 맞는다.
      * 라인마다 따로 돌리면 UPDATE 횟수만 늘고 같은 행에 락을 두 번 건다.
+     *
+     * 수량뿐 아니라 순서도 예약과 같아야 한다(TreeMap). 예약과 확정·해제는 다른
+     * 트랜잭션이라 락 순서가 어긋나면 그 둘 사이에 데드락이 난다.
      */
     public Map<String, Integer> quantitiesByProduct() {
         return items.stream().collect(Collectors.groupingBy(
                 OrderItem::getProductId,
-                LinkedHashMap::new,
+                TreeMap::new,
                 Collectors.summingInt(OrderItem::getQuantity)
         ));
     }

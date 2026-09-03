@@ -25,10 +25,10 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.util.LinkedHashMap;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -134,11 +134,16 @@ public class PlaceOrderService {
         }
     }
 
-    /** 같은 상품이 여러 라인으로 들어와도 재고 예약은 상품당 한 번만 하도록 수량을 합친다. */
+    /**
+     * 같은 상품이 여러 라인으로 들어와도 재고 예약은 상품당 한 번만 하도록 수량을 합친다.
+     *
+     * TreeMap 의 정렬 순서가 곧 락 획득 순서다. 요청 순서대로 두면 상품을 반대로 담은
+     * 동시 주문끼리 데드락이 난다. 확정·해제(Order.quantitiesByProduct())도 같은 정렬이어야 한다.
+     */
     private Map<String, Integer> aggregateQuantities(PlaceOrderRequest request) {
         return request.items().stream().collect(Collectors.groupingBy(
                 PlaceOrderRequest.Item::productId,
-                LinkedHashMap::new,
+                TreeMap::new,
                 Collectors.summingInt(PlaceOrderRequest.Item::quantity)
         ));
     }
