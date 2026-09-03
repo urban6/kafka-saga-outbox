@@ -9,13 +9,13 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * order 통합 테스트의 공통 기반. <b>진짜 MySQL 위에서 돈다.</b>
- * <p>
+ * order 통합 테스트의 공통 기반. 진짜 MySQL 위에서 돈다.
+ *
  * 이 프로젝트의 동시성 방어는 전부 조건부 UPDATE 와 유니크 인덱스다 — 반환 행 수, 제약 위반,
- * 롤백 범위 같은 것들이라 <b>목으로는 검증되지 않는다.</b> 단위 테스트가 못 닿는 게 정확히 이 층이다.
- * <p>
- * 컨테이너와 DDL 마운트는 {@link OrderMySqlContainer} 가 들고 있다. static 초기화로 한 번만 띄운다
- * ({@code @Testcontainers} 를 쓰지 않는 이유) — 클래스마다 재시작하면 MySQL 기동 시간이
+ * 롤백 범위 같은 것들이라 목으로는 검증되지 않는다. 단위 테스트가 못 닿는 게 정확히 이 층이다.
+ *
+ * 컨테이너와 DDL 마운트는 OrderMySqlContainer 가 들고 있다. static 초기화로 한 번만 띄운다
+ * (@Testcontainers 를 쓰지 않는 이유) — 클래스마다 재시작하면 MySQL 기동 시간이
  * 테스트 수만큼 곱해진다. 정리는 Ryuk 이 한다.
  */
 @Tag("integration")
@@ -39,13 +39,13 @@ public abstract class OrderIntegrationTest {
 
 	/**
 	 * 컨테이너를 공유하므로 테스트마다 상태를 되돌린다.
-	 * <p>
-	 * <b>테스트에 {@code @Transactional} 을 걸어 롤백시키지 않는다.</b> 여기서 검증하려는 게
+	 *
+	 * 테스트에 @Transactional 을 걸어 롤백시키지 않는다. 여기서 검증하려는 게
 	 * 유스케이스 자신의 트랜잭션 경계인데, 테스트가 바깥 트랜잭션을 열면 그 경계가 사라진다 —
 	 * 롤백돼야 할 것이 롤백됐는지 알 수 없게 된다.
-	 * <p>
+	 *
 	 * 재고는 DDL 시드값으로 되돌린다. 시드가 바뀌면 여기도 바뀌어야 하지만,
-	 * 상수를 테스트에 박는 것보다 <b>한 곳에서 되돌리는</b> 편이 낫다.
+	 * 상수를 테스트에 박는 것보다 한 곳에서 되돌리는 편이 낫다.
 	 */
 	@BeforeEach
 	void resetDatabase() {

@@ -34,8 +34,8 @@ import java.util.stream.Collectors;
 
 /**
  * 주문 접수 유스케이스. 주문 INSERT → 재고 예약 → 사가 INSERT → 결제 승인 커맨드 Outbox 적재를
- * <b>한 로컬 트랜잭션</b>으로 처리한다. 커밋되면 넷이 binlog 에 함께 실리고 Debezium 이 커맨드를 발행한다.
- * <p>
+ * 한 로컬 트랜잭션으로 처리한다. 커밋되면 넷이 binlog 에 함께 실리고 Debezium 이 커맨드를 발행한다.
+ *
  * 원터치(빌링키) 결제라 주문 생성이 곧 사가의 시작이다. 결제창에서 사용자 인증을 기다릴 일이 없고,
  * 사용자는 202 를 받은 뒤 주문 조회를 폴링해 결과를 본다.
  */
@@ -56,10 +56,10 @@ public class PlaceOrderService {
     /**
      * 재고 예약은 여기서 한다. 결제 승인 회신이 돌아올 때 품절을 만나지 않게 하려는 것이고,
      * 거절되면 오케스트레이터가 같은 수량을 되돌린다.
-     * <p>
-     * 뒷 라인 예약이 실패하면 <b>예외를 던져 전부 롤백</b>한다. 주문도 앞 라인 예약도 사가도 함께 사라진다.
-     * <p>
-     * 멱등 선점이 <b>이 트랜잭션 안</b>에 있어야 하는 이유가 둘이다. 동시 요청은 유니크 인덱스 락에 걸려
+     *
+     * 뒷 라인 예약이 실패하면 예외를 던져 전부 롤백한다. 주문도 앞 라인 예약도 사가도 함께 사라진다.
+     *
+     * 멱등 선점이 이 트랜잭션 안에 있어야 하는 이유가 둘이다. 동시 요청은 유니크 인덱스 락에 걸려
      * 앞 요청이 커밋될 때까지 기다렸다가 재생으로 빠지고, 주문이 롤백되면 선점도 함께 풀려 재시도가 가능하다.
      */
     @Transactional
@@ -98,10 +98,10 @@ public class PlaceOrderService {
     }
 
     /**
-     * 이미 처리한 키다. 새 주문을 만들지 않고 <b>같은 주문을 다시 돌려준다.</b>
-     * <p>
+     * 이미 처리한 키다. 새 주문을 만들지 않고 같은 주문을 다시 돌려준다.
+     *
      * 최초 응답을 통째로 저장해두지 않는 이유는, 이 API 의 응답이 어차피 폴링으로 갱신되는 스냅샷이라
-     * 지금 상태를 담아주는 편이 더 쓸모 있어서다. {@code orderNo} 와 {@code Location} 은 그대로다.
+     * 지금 상태를 담아주는 편이 더 쓸모 있어서다. orderNo 와 Location 은 그대로다.
      */
     private PlaceOrderResponse replay(String idempotencyKey, PlaceOrderRequest request) {
         ApiIdempotencyStore.Claimed claimed = apiIdempotencyStore.find(idempotencyKey)
@@ -122,7 +122,7 @@ public class PlaceOrderService {
 
     /**
      * 같은 키에 다른 주문이 실려 오는 걸 잡기 위한 요청 지문.
-     * {@code record} 는 선언 순서대로 직렬화되므로 같은 요청이면 같은 문자열이 나온다.
+     * record 는 선언 순서대로 직렬화되므로 같은 요청이면 같은 문자열이 나온다.
      */
     private String requestHash(PlaceOrderRequest request) {
         try {
@@ -144,7 +144,7 @@ public class PlaceOrderService {
     }
 
     /**
-     * 단가 조회. 재고 예약(벌크 UPDATE) 보다 <b>반드시 먼저</b> 해야 한다.
+     * 단가 조회. 재고 예약(벌크 UPDATE) 보다 반드시 먼저 해야 한다.
      * 벌크 UPDATE 는 영속성 컨텍스트를 우회하므로, 뒤에 읽으면 1차 캐시의 옛 값이 나온다.
      */
     private Map<String, Product> loadProducts(Set<String> productIds) {

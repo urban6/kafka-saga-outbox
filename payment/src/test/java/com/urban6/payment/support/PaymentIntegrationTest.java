@@ -13,17 +13,17 @@ import org.springframework.web.client.RestClient;
 import java.time.Duration;
 
 /**
- * payment 통합 테스트의 공통 기반. 진짜 MySQL + <b>진짜 HTTP</b> 위에서 돈다.
- * <p>
+ * payment 통합 테스트의 공통 기반. 진짜 MySQL + 진짜 HTTP 위에서 돈다.
+ *
  * Mock PG 가 같은 앱 안에 있지만 빈을 직접 주입하지 않고 실제 소켓으로 부른다 —
- * 운영 배선과 같고, 무엇보다 <b>빈 호출로는 read-timeout 이 재현되지 않는다.</b>
+ * 운영 배선과 같고, 무엇보다 빈 호출로는 read-timeout 이 재현되지 않는다.
  * 이 클래스가 검증하려는 것의 절반이 "응답을 못 받았을 때 무엇을 하는가" 라서
  * 그 지점을 흉내로 대체하면 테스트가 무의미해진다.
- * <p>
- * 그래서 {@code DEFINED_PORT} 다. 랜덤 포트를 쓰면 {@code pg.base-url} 을 컨텍스트 기동 전에 알 수 없고,
- * {@code RestClient} 빈이 baseUrl 을 고정으로 들고 만들어지므로 나중에 못 바꾼다.
- * <p>
- * {@code read-timeout} 을 500ms 로 줄인다. 운영값 3초는 타임아웃 테스트를 그만큼 느리게만 만든다 —
+ *
+ * 그래서 DEFINED_PORT 다. 랜덤 포트를 쓰면 pg.base-url 을 컨텍스트 기동 전에 알 수 없고,
+ * RestClient 빈이 baseUrl 을 고정으로 들고 만들어지므로 나중에 못 바꾼다.
+ *
+ * read-timeout 을 500ms 로 줄인다. 운영값 3초는 타임아웃 테스트를 그만큼 느리게만 만든다 —
  * 검증 대상은 "제한 시간이 얼마인가" 가 아니라 "넘겼을 때 무엇을 하는가" 다.
  */
 @Tag("integration")
@@ -51,13 +51,13 @@ public abstract class PaymentIntegrationTest {
 	@Autowired
 	protected JdbcTemplate jdbcTemplate;
 
-	/** 장애 주입 스위치. 테스트가 확률이 아니라 <b>확정</b>으로 켠다 — 확률로는 재현이 안 된다. */
+	/** 장애 주입 스위치. 테스트가 확률이 아니라 확정으로 켠다 — 확률로는 재현이 안 된다. */
 	@Autowired
 	protected MockPgFaults faults;
 
 	/**
-	 * Mock PG 를 직접 두드리기 위한 클라이언트. 프로덕션 {@code PgClient} 를 쓰지 않는 이유는
-	 * 테스트 <b>준비</b>에 검증 대상을 쓰면 무엇이 깨졌는지 구분되지 않기 때문이다.
+	 * Mock PG 를 직접 두드리기 위한 클라이언트. 프로덕션 PgClient 를 쓰지 않는 이유는
+	 * 테스트 준비에 검증 대상을 쓰면 무엇이 깨졌는지 구분되지 않기 때문이다.
 	 */
 	protected final RestClient pg = RestClient.builder().baseUrl(PG_BASE_URL).build();
 

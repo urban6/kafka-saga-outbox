@@ -19,11 +19,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
 /**
- * 회신 처리의 <b>방어선 3겹</b>과 재고 전이를 실제 DB 위에서 확인한다.
- * <p>
- * {@code decide()} 는 단위 테스트가 전수로 덮었다. 여기서 보는 건 그 결정이 DB 에 옮겨질 때의
+ * 회신 처리의 방어선 3겹과 재고 전이를 실제 DB 위에서 확인한다.
+ *
+ * decide() 는 단위 테스트가 전수로 덮었다. 여기서 보는 건 그 결정이 DB 에 옮겨질 때의
  * 성질이다 — 조건부 UPDATE 가 몇 건을 돌려주는가, 멱등 테이블의 PK 충돌이 실제로 두 번째를 막는가,
- * 재고가 확정과 해제에서 다르게 움직이는가. 전부 <b>목으로는 검증되지 않는</b> 것들이다.
+ * 재고가 확정과 해제에서 다르게 움직이는가. 전부 목으로는 검증되지 않는 것들이다.
  */
 class OrderSagaOrchestratorIntegrationTest extends OrderIntegrationTest {
 
@@ -44,8 +44,8 @@ class OrderSagaOrchestratorIntegrationTest extends OrderIntegrationTest {
 	}
 
 	/**
-	 * payment 가 보냈을 회신 봉투. {@code payload} 는 오케스트레이터가 읽지 않지만
-	 * (결정은 {@code eventType} 과 현재 단계만으로 난다) 실제 모양을 넣어둔다.
+	 * payment 가 보냈을 회신 봉투. payload 는 오케스트레이터가 읽지 않지만
+	 * (결정은 eventType 과 현재 단계만으로 난다) 실제 모양을 넣어둔다.
 	 */
 	private InboundEnvelope reply(UUID eventId, String orderNo, EventType eventType) {
 		return new InboundEnvelope(

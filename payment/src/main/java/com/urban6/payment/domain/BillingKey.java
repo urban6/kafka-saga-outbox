@@ -18,10 +18,10 @@ import java.time.Instant;
 
 /**
  * 고객이 등록한 카드의 빌링키. 고객당 하나다.
- * <p>
+ *
  * 카드번호는 여기 없다. PG 에 보내 키를 받는 순간 우리 손을 떠나고, 남는 건 화면에 보여줄
  * 끝 4자리뿐이다. 이 서비스가 카드 정보를 저장하지 않는 것이 PCI 경계다.
- * <p>
+ *
  * 재등록은 덮어쓴다. PG 쪽 이전 키는 그대로 유효하지만(Toss 동일) 우리는 최신 하나만 쓴다.
  */
 @Entity
@@ -30,7 +30,7 @@ import java.time.Instant;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class BillingKey implements Persistable<String> {
 
-	/** {@code orders.customer_id} 와 같은 값. 커맨드로 넘어와 여기서 키를 찾는 조회 키다. */
+	/** orders.customer_id 와 같은 값. 커맨드로 넘어와 여기서 키를 찾는 조회 키다. */
 	@Id
 	@Column(name = "customer_id", nullable = false, length = 64)
 	private String customerId;
@@ -47,7 +47,7 @@ public class BillingKey implements Persistable<String> {
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt;
 
-	/** {@link Payment} 와 같은 이유. PK 를 직접 할당하므로 새 행인지 여기서 말해줘야 INSERT 앞에 SELECT 가 안 나간다. */
+	/** Payment 와 같은 이유. PK 를 직접 할당하므로 새 행인지 여기서 말해줘야 INSERT 앞에 SELECT 가 안 나간다. */
 	@Transient
 	private boolean isNew = true;
 

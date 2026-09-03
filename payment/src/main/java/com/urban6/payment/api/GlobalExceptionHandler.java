@@ -15,9 +15,9 @@ import java.util.List;
 
 /**
  * payment API 의 에러 응답을 한 형식으로 모은다.
- * <p>
- * <b>{@code basePackageClasses} 로 범위를 좁힌 것이 핵심이다.</b> 범위를 안 주면 이 어드바이스가
- * {@code mockpg} 컨트롤러까지 잡아 Toss 형식이어야 할 PG 응답을 우리 형식으로 덮어쓴다.
+ *
+ * basePackageClasses 로 범위를 좁힌 것이 핵심이다. 범위를 안 주면 이 어드바이스가
+ * mockpg 컨트롤러까지 잡아 Toss 형식이어야 할 PG 응답을 우리 형식으로 덮어쓴다.
  * PG 는 외부 시스템이라 우리 에러 계약을 따르면 안 된다.
  */
 @RestControllerAdvice(basePackageClasses = PaymentController.class)
@@ -44,7 +44,7 @@ public class GlobalExceptionHandler {
 
 	/**
 	 * PG 에러 응답을 그대로 노출하지 않고 우리 형식으로 감싼다. 코드는 그대로 — 원인 추적에 필요하다.
-	 * <p>
+	 *
 	 * PG 의 4xx 는 우리 입력이 틀린 것(카드 정보)이라 400 으로, 5xx 는 PG 장애라 502 로 돌려준다.
 	 * 우리 서버 문제(500)와 구분되어야 한다.
 	 */
@@ -58,9 +58,9 @@ public class GlobalExceptionHandler {
 	}
 
 	/**
-	 * 일시적 실패다. <b>503</b> 인 이유는 클라이언트에게 "다시 걸어라" 를 말해야 하기 때문이다 —
+	 * 일시적 실패다. 503 인 이유는 클라이언트에게 "다시 걸어라" 를 말해야 하기 때문이다 —
 	 * 400 이면 요청을 고치려 들고, 502 면 포기한다.
-	 * <p>
+	 *
 	 * Kafka 경로에서는 이 예외가 리스너 밖으로 나가 컨테이너가 재시도한다.
 	 * 같은 예외가 진입 경로에 따라 다르게 쓰이는 것이고, 그게 의도다.
 	 */

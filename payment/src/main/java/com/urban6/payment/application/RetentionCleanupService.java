@@ -14,11 +14,11 @@ import java.util.function.IntUnaryOperator;
 
 /**
  * 보관 주기가 지난 운영 테이블을 지운다. outbox 와 consumed_message 둘이 대상이다.
- * <p>
- * <b>{@code @Transactional} 이 없다.</b> 일부러 없다 — 삭제를 한 트랜잭션으로 묶으면 배치 상한이 의미를 잃는다.
+ *
+ * @Transactional 이 없다. 일부러 없다 — 삭제를 한 트랜잭션으로 묶으면 배치 상한이 의미를 잃는다.
  * 호출마다 트랜잭션이 끊겨야 락이 실제로 풀리고, 다른 요청이 그 틈에 들어온다.
- * <p>
- * {@code payment} 테이블은 지우지 않는다. 결제 이력은 운영 데이터가 아니라 <b>기록</b>이다.
+ *
+ * payment 테이블은 지우지 않는다. 결제 이력은 운영 데이터가 아니라 기록이다.
  */
 @Service
 @RequiredArgsConstructor

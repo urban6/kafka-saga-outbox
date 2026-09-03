@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * 주문번호 생성. 형식: ORD-yyyyMMdd-XXXXXXXX
- * <p>
+ *
  * 날짜를 앞에 두어 로그에서 시점을 눈으로 확인할 수 있게 한다.
  * 순번 대신 랜덤을 쓰는 이유는 채번 테이블이나 시퀀스 없이 동시성 문제를 피하기 위해서다.
  */

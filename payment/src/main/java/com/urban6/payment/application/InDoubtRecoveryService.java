@@ -18,12 +18,12 @@ import java.util.List;
 
 /**
  * "돈이 빠졌는지 모르는" 결제를 조회 API 로 해소한다.
- * <p>
- * <b>재청구하지 않는다.</b> 빌링은 인증 세션이 없어 언제든 청구가 통하므로, PG 의 멱등키 보관 기간이
+ *
+ * 재청구하지 않는다. 빌링은 인증 세션이 없어 언제든 청구가 통하므로, PG 의 멱등키 보관 기간이
  * 지난 뒤 재청구하면 그건 이중 결제다. 물어보는 것만이 안전하다.
- * <p>
- * <b>{@code @Transactional} 이 없다.</b> 행마다 PG 를 부르기 때문이다.
- * DB 확정은 {@link PaymentTransactionService#settle} 이 건별 트랜잭션으로 맡는다 —
+ *
+ * @Transactional 이 없다. 행마다 PG 를 부르기 때문이다.
+ * DB 확정은 PaymentTransactionService.settle 이 건별 트랜잭션으로 맡는다 —
  * 한 트랜잭션으로 묶으면 50건 중 마지막이 실패할 때 앞의 49건 확정이 함께 날아간다.
  */
 @Service
@@ -76,7 +76,7 @@ public class InDoubtRecoveryService {
 		}
 	}
 
-	/** PG 조회는 <b>트랜잭션 밖</b>이다. 확정만 트랜잭션으로 들어간다. */
+	/** PG 조회는 트랜잭션 밖이다. 확정만 트랜잭션으로 들어간다. */
 	private Resolution resolve(Payment payment, Instant now) {
 		String orderNo = payment.getOrderNo();
 		PgChargeResult result = pgClient.reconcile(orderNo);

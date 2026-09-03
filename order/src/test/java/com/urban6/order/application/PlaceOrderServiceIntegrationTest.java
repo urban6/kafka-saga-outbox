@@ -16,9 +16,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * 주문 접수가 <b>정말로 한 트랜잭션인가</b>를 확인한다.
- * <p>
- * "네 개를 한 트랜잭션에 담았다" 는 주장은 커밋될 때가 아니라 <b>롤백될 때</b> 증명된다.
+ * 주문 접수가 정말로 한 트랜잭션인가를 확인한다.
+ *
+ * "네 개를 한 트랜잭션에 담았다" 는 주장은 커밋될 때가 아니라 롤백될 때 증명된다.
  * 그래서 이 클래스의 절반은 실패 경로다 — 재고가 모자랄 때 주문·예약·사가·outbox·멱등 선점이
  * 하나도 남지 않아야 한다. 하나라도 남으면 그 주문은 영영 진행도 재시도도 못 한다.
  */

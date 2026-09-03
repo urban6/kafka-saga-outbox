@@ -37,7 +37,7 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of("INVALID_REQUEST", "요청 값이 올바르지 않습니다", details));
     }
 
-    /** 헤더 누락. {@code Idempotency-Key} 가 빠진 주문 요청이 여기로 온다. */
+    /** 헤더 누락. Idempotency-Key 가 빠진 주문 요청이 여기로 온다. */
     @ExceptionHandler(MissingRequestHeaderException.class)
     public ResponseEntity<ErrorResponse> handleMissingHeader(MissingRequestHeaderException e) {
         return ResponseEntity.badRequest()
@@ -45,7 +45,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 같은 {@code Idempotency-Key} 에 다른 요청 본문이 왔다. 요청 자체는 문법적으로 멀쩡하므로
+     * 같은 Idempotency-Key 에 다른 요청 본문이 왔다. 요청 자체는 문법적으로 멀쩡하므로
      * 400 이 아니라 422 다 — 클라이언트가 키를 재사용한 것이고, 고칠 곳은 본문이 아니라 키다.
      */
     @ExceptionHandler(IdempotencyConflictException.class)

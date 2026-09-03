@@ -18,10 +18,10 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 /**
- * {@code PgClient} 판정표. <b>표가 곧 테스트 케이스다.</b>
- * <p>
- * 여기서 지키는 명제는 하나다 — <b>"모른다" 를 "거절" 로 접지 않는다.</b>
- * 예전 코드는 {@code default} 분기가 모르는 코드를 전부 거절로 떨어뜨렸고,
+ * PgClient 판정표. 표가 곧 테스트 케이스다.
+ *
+ * 여기서 지키는 명제는 하나다 — "모른다" 를 "거절" 로 접지 않는다.
+ * 예전 코드는 default 분기가 모르는 코드를 전부 거절로 떨어뜨렸고,
  * 그래서 타임아웃 뒤 승인된 결제에 재고 해제와 주문 취소가 도는 경로가 열려 있었다.
  * 이 클래스가 그 회귀를 막는다.
  */
@@ -32,7 +32,7 @@ class PgClientTest {
 	private static final String CUSTOMER_ID = "C-1";
 	private static final BigDecimal AMOUNT = new BigDecimal("10000");
 
-	/** {@code requestTo} 는 절대 URL 로 비교한다. baseUrl 을 붙여둔다. */
+	/** requestTo 는 절대 URL 로 비교한다. baseUrl 을 붙여둔다. */
 	private static final String BASE_URL = "http://pg.test";
 	private static final String CHARGE_URI = BASE_URL + "/v1/billing/" + BILLING_KEY;
 	private static final String LOOKUP_URI = BASE_URL + "/v1/payments/orders/" + ORDER_NO;

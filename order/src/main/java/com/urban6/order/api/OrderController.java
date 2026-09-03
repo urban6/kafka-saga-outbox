@@ -28,8 +28,8 @@ public class OrderController {
     private final OrderQueryService orderQueryService;
 
     /**
-     * {@code Idempotency-Key} 는 필수다. 돈이 빠지는 요청이라 헤더를 빠뜨린 클라이언트에게
-     * 조용히 이중 결제를 허용하지 않는다. 재시도할 때는 <b>같은 키</b>를 다시 보내야 한다.
+     * Idempotency-Key 는 필수다. 돈이 빠지는 요청이라 헤더를 빠뜨린 클라이언트에게
+     * 조용히 이중 결제를 허용하지 않는다. 재시도할 때는 같은 키를 다시 보내야 한다.
      */
     @PostMapping
     public ResponseEntity<PlaceOrderResponse> placeOrder(

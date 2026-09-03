@@ -16,14 +16,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * PG 의 결제 상태와 판정 로직. <b>인메모리다.</b>
- * <p>
+ * PG 의 결제 상태와 판정 로직. 인메모리다.
+ *
  * payment_db 를 쓰지 않는 이유는 외부 시스템이기 때문이다. 같은 DB 를 쓰면 payment 서비스가
  * SQL 로 PG 상태를 들여다보는 지름길이 생기고, 그러면 조회 API 를 쓸 이유가 사라진다.
  * 재시작하면 날아가지만 이 프로젝트에서는 문제가 되지 않는다.
- * <p>
- * 빌링(자동결제) 계약이다. 결제창 흐름과 달리 인증 단계가 없어서 {@link #charge 청구} 한 번이
- * 결제의 시작이자 끝이다 — 그 호출에서 돈이 빠진다. 그래서 {@code IN_PROGRESS}/{@code EXPIRED} 에
+ *
+ * 빌링(자동결제) 계약이다. 결제창 흐름과 달리 인증 단계가 없어서 charge 청구 한 번이
+ * 결제의 시작이자 끝이다 — 그 호출에서 돈이 빠진다. 그래서 IN_PROGRESS/EXPIRED 에
  * 도달하는 경로가 없다.
  */
 @Component
@@ -32,7 +32,7 @@ public class MockPgEngine {
 
 	private static final Logger log = LoggerFactory.getLogger(MockPgEngine.class);
 
-	/** Toss 결제 상태. 빌링에선 {@code DONE} 아니면 {@code ABORTED} 다. 나머지는 계약 호환용으로만 남긴다. */
+	/** Toss 결제 상태. 빌링에선 DONE 아니면 ABORTED 다. 나머지는 계약 호환용으로만 남긴다. */
 	public enum PgStatus {
 		READY, IN_PROGRESS, DONE, CANCELED, ABORTED, EXPIRED
 	}
@@ -41,7 +41,7 @@ public class MockPgEngine {
 	 * PG 가 들고 있는 결제 1건. 응답 본문으로 그대로 나간다.
 	 *
 	 * @param requestedAt 청구 요청 시각
-	 * @param approvedAt  승인 시각. {@code DONE} 일 때만 값이 있다
+	 * @param approvedAt  승인 시각. DONE 일 때만 값이 있다
 	 */
 	public record PgPayment(
 			String paymentKey,
@@ -74,14 +74,14 @@ public class MockPgEngine {
 
 	/**
 	 * 청구 처리 중인 주문. 실제 Toss 에선 멱등키 레이어가 하는 일이다 —
-	 * 같은 주문의 청구가 겹치면 두 번째는 {@code IDEMPOTENT_REQUEST_PROCESSING}(409) 을 받는다.
+	 * 같은 주문의 청구가 겹치면 두 번째는 IDEMPOTENT_REQUEST_PROCESSING(409) 을 받는다.
 	 */
 	private final Set<String> charging = ConcurrentHashMap.newKeySet();
 
 	private final MockPgFaults faults;
 
 	/**
-	 * Toss {@code POST /v1/billing/authorizations/card}. 같은 고객이 다시 등록하면 새 키가 나오고
+	 * Toss POST /v1/billing/authorizations/card. 같은 고객이 다시 등록하면 새 키가 나오고
 	 * 이전 키도 그대로 유효하다(Toss 동일). 폐기 API 는 이 프로젝트 범위 밖이다.
 	 */
 	public BillingKey issueBillingKey(String customerKey, String cardNumber) {
@@ -94,13 +94,13 @@ public class MockPgEngine {
 	}
 
 	/**
-	 * Toss {@code POST /v1/billing/{billingKey}}. 여기서 돈이 빠진다.
-	 * <p>
-	 * 검사를 통과한 뒤 <b>{@link #charging} 선점을 먼저</b> 한다. 지연을 주입하는 순간 이게 의미를 갖는다 —
+	 * Toss POST /v1/billing/{billingKey}. 여기서 돈이 빠진다.
+	 *
+	 * 검사를 통과한 뒤 charging 선점을 먼저 한다. 지연을 주입하는 순간 이게 의미를 갖는다 —
 	 * 지연 중에 들어온 두 번째 요청이 "처리 중" 응답을 받아야 한다.
-	 * <p>
-	 * {@code ABORTED} 였던 주문에 다시 청구가 오면 새 결제로 덮어쓴다. 거절된 결제는 돈이 안 빠졌으므로
-	 * 같은 {@code orderId} 재청구를 막을 이유가 없다.
+	 *
+	 * ABORTED 였던 주문에 다시 청구가 오면 새 결제로 덮어쓴다. 거절된 결제는 돈이 안 빠졌으므로
+	 * 같은 orderId 재청구를 막을 이유가 없다.
 	 */
 	public PgPayment charge(String billingKey, String customerKey, String orderId, BigDecimal amount) {
 		BillingKey key = byBillingKey.get(billingKey);

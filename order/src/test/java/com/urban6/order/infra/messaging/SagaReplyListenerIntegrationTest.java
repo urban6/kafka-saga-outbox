@@ -15,11 +15,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 /**
- * 리스너가 <b>무엇을 견디는가</b>. 여기서 지키는 명제는 하나다 —
- * <b>메시지 하나가 파티션 하나를 멈추게 하지 않는다.</b>
- * <p>
+ * 리스너가 무엇을 견디는가. 여기서 지키는 명제는 하나다 —
+ * 메시지 하나가 파티션 하나를 멈추게 하지 않는다.
+ *
  * 이게 깨지면 같은 파티션에 실린 다른 주문들이 전부 함께 멈춘다. 실패의 범위가 메시지 하나가 아니다.
- * 그래서 나쁜 메시지와 정상 메시지에 <b>같은 키</b>를 써 같은 파티션으로 보낸다 —
+ * 그래서 나쁜 메시지와 정상 메시지에 같은 키를 써 같은 파티션으로 보낸다 —
  * 키가 다르면 다른 파티션으로 흩어져 "막지 않았다" 를 증명하지 못한다.
  */
 class SagaReplyListenerIntegrationTest extends OrderKafkaIntegrationTest {

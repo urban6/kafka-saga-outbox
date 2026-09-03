@@ -11,8 +11,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * 임계값 계산은 순수 함수라 스프링 없이 전 조합을 돌린다.
- * <p>
- * {@code minThreshold()} 가 이 클래스에서 가장 중요하다. 여기서 <b>가장 긴</b> 값을 고르면
+ *
+ * minThreshold() 가 이 클래스에서 가장 중요하다. 여기서 가장 긴 값을 고르면
  * 짧은 임계값을 가진 단계의 정체가 후보 조회에서 통째로 빠져 영영 탐지되지 않는다.
  * 로그도 메트릭도 조용해서 눈으로는 안 드러난다.
  */

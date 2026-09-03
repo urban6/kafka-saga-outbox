@@ -1,19 +1,19 @@
 package com.urban6.order.domain;
 
 /**
- * 사가가 지금 회신을 기다리고 있는 <b>원격</b> 단계.
- * <p>
+ * 사가가 지금 회신을 기다리고 있는 원격 단계.
+ *
  * 재고 예약·확정·해제는 같은 DB 의 로컬 트랜잭션이라 단계가 아니다.
- * <b>그래서 값이 하나뿐이다</b> — 이 사가에서 남에게 부탁하는 일은 결제 청구가 전부다.
- * 값이 하나라도 enum 으로 두는 이유는 {@code current_step} 과 {@code step_started_at} 이
+ * 그래서 값이 하나뿐이다 — 이 사가에서 남에게 부탁하는 일은 결제 청구가 전부다.
+ * 값이 하나라도 enum 으로 두는 이유는 current_step 과 step_started_at 이
  * "어느 단계에 얼마나 머물렀나" 를 재는 짝이기 때문이다. Stuck 탐지가 이걸 읽는다.
- * <p>
- * {@code EventType} 과 이름이 겹치지만 재사용하지 않는다. 그건 {@code infra/messaging} 에 있고
+ *
+ * EventType 과 이름이 겹치지만 재사용하지 않는다. 그건 infra/messaging 에 있고
  * 도메인이 인프라를 의존하면 방향이 뒤집힌다. 수명도 다르다 — 와이어에 타입이 하나 늘어도
  * 사가 단계가 늘어나는 건 아니다.
- * <p>
+ *
  * 종료를 뜻하는 값을 두지 않는다. 끝난 뒤에도 마지막 단계를 남겨야 "어디서 끝났는지"가 보인다.
- * 종료 여부는 {@link SagaStatus} 가 말한다.
+ * 종료 여부는 SagaStatus 가 말한다.
  */
 public enum SagaStep {
 

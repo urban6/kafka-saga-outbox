@@ -15,14 +15,14 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * {@code isStuck} 경계 검증.
- * <p>
- * {@code SagaInstance} 는 {@code stepStartedAt} 을 바꿀 수단이 없다 — 전이를 조건부 UPDATE 로만
- * 하기로 했기 때문이다. 대신 {@code isStuck} 이 {@code now} 를 주입받으므로
- * <b>시작 시각을 고정하는 대신 현재 시각을 민다.</b> 결과는 같고 프로덕션 코드는 그대로다.
- * <p>
- * {@code SagaStep} 값이 하나뿐이라 "단계마다 임계값이 다르다" 는 성질은
- * {@code StuckSagaPropertiesTest} 가 설정 수준에서 본다.
+ * isStuck 경계 검증.
+ *
+ * SagaInstance 는 stepStartedAt 을 바꿀 수단이 없다 — 전이를 조건부 UPDATE 로만
+ * 하기로 했기 때문이다. 대신 isStuck 이 now 를 주입받으므로
+ * 시작 시각을 고정하는 대신 현재 시각을 민다. 결과는 같고 프로덕션 코드는 그대로다.
+ *
+ * SagaStep 값이 하나뿐이라 "단계마다 임계값이 다르다" 는 성질은
+ * StuckSagaPropertiesTest 가 설정 수준에서 본다.
  */
 class StuckSagaDetectorTest {
 

@@ -5,8 +5,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * 컨텍스트 배선 카나리아. {@code ddl-auto: validate} 라 엔티티와 DDL 이 어긋나면 여기서 먼저 터지고,
- * {@code @ConfigurationProperties} record 의 바인딩 실패도 부팅을 막는다.
+ * 컨텍스트 배선 카나리아. ddl-auto: validate 라 엔티티와 DDL 이 어긋나면 여기서 먼저 터지고,
+ * @ConfigurationProperties record 의 바인딩 실패도 부팅을 막는다.
  */
 class PaymentApplicationTests extends PaymentIntegrationTest {
 

@@ -6,14 +6,14 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
 /**
- * payment 통합 테스트가 <b>공유</b>하는 MySQL 컨테이너.
- * <p>
+ * payment 통합 테스트가 공유하는 MySQL 컨테이너.
+ *
  * 기반 클래스마다 컨테이너를 들면 스프링 컨텍스트가 갈릴 때 MySQL 도 함께 늘어난다.
  * 여기 한 곳에 두면 기동 비용을 한 번만 낸다.
- * <p>
- * <b>DDL 을 복사하지 않는다.</b> {@code docker/mysql/init/03-payment.sql} 을 그대로 마운트한다.
+ *
+ * DDL 을 복사하지 않는다. docker/mysql/init/03-payment.sql 을 그대로 마운트한다.
  * 테스트용 스키마를 따로 두면 언젠가 운영 DDL 과 어긋나고, 그때 통합 테스트는
- * <b>존재하지 않는 스키마를</b> 검증하게 된다.
+ * 존재하지 않는 스키마를 검증하게 된다.
  */
 final class PaymentMySqlContainer {
 

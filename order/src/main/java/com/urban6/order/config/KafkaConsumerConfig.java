@@ -17,11 +17,11 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * 회신 컨슈머의 역직렬화 파이프라인.
- * <p>
- * <b>커스텀 {@code JsonMapper} 빈을 만들지 않는다.</b> Jackson 3 는 모르는 필드를 기본으로
- * 무시하므로(tolerant reader 가 기본값) 설정할 게 없고, {@code JsonMapper extends ObjectMapper}
- * 라서 직접 등록하면 Boot 의 {@code ObjectMapper} 오토컨피그가 물러나
- * {@code OutboxWriter} 의 직렬화 규칙까지 딸려 바뀐다.
+ *
+ * 커스텀 JsonMapper 빈을 만들지 않는다. Jackson 3 는 모르는 필드를 기본으로
+ * 무시하므로(tolerant reader 가 기본값) 설정할 게 없고, JsonMapper extends ObjectMapper
+ * 라서 직접 등록하면 Boot 의 ObjectMapper 오토컨피그가 물러나
+ * OutboxWriter 의 직렬화 규칙까지 딸려 바뀐다.
  */
 @Configuration
 public class KafkaConsumerConfig {
@@ -29,8 +29,8 @@ public class KafkaConsumerConfig {
 	public static final String CONTAINER_FACTORY = "sagaReplyListenerContainerFactory";
 
 	/**
-	 * 값 역직렬화는 {@link ErrorHandlingDeserializer} 로 감싼다(poison pill 방어).
-	 * 감싸지 않으면 역직렬화 예외가 무한 재시도되어 <b>파티션 하나가 통째로 멈춘다</b>.
+	 * 값 역직렬화는 ErrorHandlingDeserializer 로 감싼다(poison pill 방어).
+	 * 감싸지 않으면 역직렬화 예외가 무한 재시도되어 파티션 하나가 통째로 멈춘다.
 	 */
 	@Bean
 	public ConsumerFactory<String, InboundEnvelope> sagaReplyConsumerFactory(

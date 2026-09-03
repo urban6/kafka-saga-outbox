@@ -9,10 +9,10 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 /**
- * {@code order.saga.replies} 수신 지점.
- * <p>
+ * order.saga.replies 수신 지점.
+ *
  * 하는 일은 둘뿐이다 — 와이어 타입을 해석하고, 유스케이스에 넘긴다.
- * 멱등성·상태 전이 판단은 전부 {@link OrderSagaOrchestrator} 몫이다.
+ * 멱등성·상태 전이 판단은 전부 OrderSagaOrchestrator 몫이다.
  */
 @Component
 @RequiredArgsConstructor

@@ -14,12 +14,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * "돈이 빠졌는지 모르는" 결제를 조회로 해소하는 경로.
- * <p>
- * <b>준비를 타임아웃 주입으로 하지 않는다.</b> 그러면 Mock PG 의 지연이 끝나기를 기다려야 해서
- * 테스트가 시간에 의존한다. 대신 PG 와 우리 DB 를 <b>따로</b> 원하는 상태로 만든다 —
- * PG 에는 청구를 직접 넣어 {@code DONE} 을 만들고, 우리 쪽엔 {@code IN_PROGRESS} 행을 심는다.
+ *
+ * 준비를 타임아웃 주입으로 하지 않는다. 그러면 Mock PG 의 지연이 끝나기를 기다려야 해서
+ * 테스트가 시간에 의존한다. 대신 PG 와 우리 DB 를 따로 원하는 상태로 만든다 —
+ * PG 에는 청구를 직접 넣어 DONE 을 만들고, 우리 쪽엔 IN_PROGRESS 행을 심는다.
  * in-doubt 는 결국 "두 상태가 어긋난 것" 이므로 이렇게 만드는 편이 정확하고 빠르다.
- * (타임아웃이 실제로 {@code IN_PROGRESS} 를 만드는지는 {@code ApprovePaymentServiceIntegrationTest} 가 본다)
+ * (타임아웃이 실제로 IN_PROGRESS 를 만드는지는 ApprovePaymentServiceIntegrationTest 가 본다)
  */
 class InDoubtRecoveryServiceIntegrationTest extends PaymentIntegrationTest {
 
@@ -49,7 +49,7 @@ class InDoubtRecoveryServiceIntegrationTest extends PaymentIntegrationTest {
 	}
 
 	/**
-	 * 결과를 모르는 결제 행. {@code updated_at} 을 과거로 박아 grace(기본 30초)를 통과시킨다.
+	 * 결과를 모르는 결제 행. updated_at 을 과거로 박아 grace(기본 30초)를 통과시킨다.
 	 * 시각을 MySQL 이 계산하게 두는 이유는 애플리케이션과 DB 의 시간대 해석을 섞지 않기 위해서다.
 	 */
 	private void insertInDoubtRow(String orderNo, int minutesAgo) {

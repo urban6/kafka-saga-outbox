@@ -17,10 +17,10 @@ import static com.urban6.order.application.OrderSagaOrchestrator.SagaDecision.IG
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * {@code decide()} 는 순수 함수라 <b>전 조합을 전수 검증</b>한다.
- * {@code SagaStep} 2 × {@code EventType} 7 = 14 가지가 전부다.
- * <p>
- * 이 테스트가 지키는 건 "무엇을 하는가" 가 아니라 <b>"무엇을 안 하는가"</b> 다.
+ * decide() 는 순수 함수라 전 조합을 전수 검증한다.
+ * SagaStep 2 × EventType 7 = 14 가지가 전부다.
+ *
+ * 이 테스트가 지키는 건 "무엇을 하는가" 가 아니라 "무엇을 안 하는가" 다.
  * 사가에서 사고는 대개 하지 말아야 할 전이를 해서 난다 — 늦게 온 회신, 지나간 단계,
  * 아직 만들지 않은 경로의 회신. 그래서 아래 표는 IGNORE 가 대부분이고 그게 정상이다.
  */

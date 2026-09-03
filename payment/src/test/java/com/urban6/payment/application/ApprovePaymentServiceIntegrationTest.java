@@ -14,10 +14,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * PG 판정이 <b>DB 와 회신에 어떻게 옮겨지는가</b>를 본다.
- * <p>
- * {@code PgClient} 판정표는 단위 테스트가 덮었다. 여기서 확인하는 건 그 다음이다 —
- * 승인은 무엇을 남기고, 거절은 무엇을 남기고, <b>재시도는 아무것도 남기지 않으며</b>,
+ * PG 판정이 DB 와 회신에 어떻게 옮겨지는가를 본다.
+ *
+ * PgClient 판정표는 단위 테스트가 덮었다. 여기서 확인하는 건 그 다음이다 —
+ * 승인은 무엇을 남기고, 거절은 무엇을 남기고, 재시도는 아무것도 남기지 않으며,
  * 모를 때는 행만 남기고 회신은 내지 않는가. 마지막 둘이 이 클래스의 존재 이유다.
  */
 class ApprovePaymentServiceIntegrationTest extends PaymentIntegrationTest {

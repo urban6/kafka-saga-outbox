@@ -13,11 +13,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 /**
- * 커맨드 리스너가 <b>무엇을 견디는가</b>. order 쪽과 같은 명제를 payment 에서도 지킨다 —
- * <b>메시지 하나가 파티션 하나를 멈추게 하지 않는다.</b>
- * <p>
+ * 커맨드 리스너가 무엇을 견디는가. order 쪽과 같은 명제를 payment 에서도 지킨다 —
+ * 메시지 하나가 파티션 하나를 멈추게 하지 않는다.
+ *
  * payment 는 여기서 돈이 나가므로 대가가 더 크다. 커맨드 하나가 파티션을 막으면
- * 같은 파티션의 다른 주문들이 결제되지 않은 채 order 쪽에서 {@code PENDING} 으로 굳는다.
+ * 같은 파티션의 다른 주문들이 결제되지 않은 채 order 쪽에서 PENDING 으로 굳는다.
  */
 class PaymentCommandListenerIntegrationTest extends PaymentKafkaIntegrationTest {
 

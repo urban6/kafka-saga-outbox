@@ -11,8 +11,8 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * 메시징 인프라 빈 등록.
- * <p>
- * {@code infra.messaging} 클래스들에 {@code @Component} 를 붙이지 않은 이유는, 무엇을 쓸지를
+ *
+ * infra.messaging 클래스들에 @Component 를 붙이지 않은 이유는, 무엇을 쓸지를
  * 인프라가 아니라 서비스가 결정하게 두기 위해서다. payment 는 수신·발행을 다 하므로 둘 다 등록한다.
  */
 @Configuration

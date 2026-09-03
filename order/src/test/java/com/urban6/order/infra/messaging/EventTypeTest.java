@@ -8,12 +8,12 @@ import org.junit.jupiter.params.provider.EnumSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 와이어 문자열 → enum 변환이 <b>절대 예외를 던지지 않는다</b>는 것을 지킨다.
- * <p>
- * 여기서 {@code valueOf} 를 쓰면 payment 가 회신 종류를 하나 추가하는 순간 그 메시지마다 예외가 나고,
+ * 와이어 문자열 → enum 변환이 절대 예외를 던지지 않는다는 것을 지킨다.
+ *
+ * 여기서 valueOf 를 쓰면 payment 가 회신 종류를 하나 추가하는 순간 그 메시지마다 예외가 나고,
  * 에러 핸들러가 포기할 때까지 같은 파티션의 뒷 메시지가 밀린다. 영구 차단은 아니지만
- * <b>실패의 범위가 메시지 하나가 아니라는</b> 성질은 같다 — 같은 파티션에 실린 다른 주문들이 함께 늦는다.
- * (영구 차단은 역직렬화 실패 쪽이고, {@code SagaReplyListenerIntegrationTest} 가 실측한다)
+ * 실패의 범위가 메시지 하나가 아니라는 성질은 같다 — 같은 파티션에 실린 다른 주문들이 함께 늦는다.
+ * (영구 차단은 역직렬화 실패 쪽이고, SagaReplyListenerIntegrationTest 가 실측한다)
  */
 class EventTypeTest {
 

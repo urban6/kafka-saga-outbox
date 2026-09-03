@@ -22,12 +22,12 @@ import java.util.UUID;
 
 /**
  * 결제 결과를 DB 에 확정하는 트랜잭션 경계.
- * <p>
- * <b>{@link ApprovePaymentService} 와 별개 빈인 이유</b> — 같은 클래스 안에서 {@code @Transactional}
+ *
+ * ApprovePaymentService 와 별개 빈인 이유 — 같은 클래스 안에서 @Transactional
  * 메서드를 부르면 프록시를 타지 않아 트랜잭션이 안 걸린다. PG 호출은 트랜잭션 밖, 그 반영은 안이어야
  * 하므로 이 경계는 빈 사이의 호출일 수밖에 없다.
- * <p>
- * 트랜잭션 하나에 <b>멱등 선점 · 결제 확정 · 회신 적재</b> 가 함께 들어간다. 하나라도 밖으로 빼면
+ *
+ * 트랜잭션 하나에 멱등 선점 · 결제 확정 · 회신 적재 가 함께 들어간다. 하나라도 밖으로 빼면
  * "결제는 됐는데 회신이 없다" 또는 "선점만 남아 영영 재처리되지 않는다" 가 생긴다.
  */
 @Service
@@ -40,15 +40,15 @@ public class PaymentTransactionService {
 	private final OutboxWriter outboxWriter;
 	private final IdempotencyGuard idempotencyGuard;
 
-	/** {@code consumed_message.consumer_group} 에 들어간다. 컨슈머 그룹과 반드시 같아야 하므로 같은 프로퍼티를 읽는다. */
+	/** consumed_message.consumer_group 에 들어간다. 컨슈머 그룹과 반드시 같아야 하므로 같은 프로퍼티를 읽는다. */
 	@Value("${spring.kafka.consumer.group-id}")
 	private final String consumerGroup;
 
 	/**
 	 * 새 결제를 확정한다.
 	 *
-	 * @param eventId Kafka 진입이면 커맨드 식별자, HTTP 진입이면 {@code null}
-	 * @return 저장된 결제. 중복 메시지라 아무것도 하지 않았으면 {@code null}
+	 * @param eventId Kafka 진입이면 커맨드 식별자, HTTP 진입이면 null
+	 * @return 저장된 결제. 중복 메시지라 아무것도 하지 않았으면 null
 	 */
 	@Transactional
 	public Payment record(String paymentId, String orderNo, BigDecimal amount,
@@ -82,7 +82,7 @@ public class PaymentTransactionService {
 	}
 
 	/**
-	 * 이미 처리된 결제에 대해 <b>회신만 다시 낸다.</b> 앞선 회신이 유실됐을 수 있어서다.
+	 * 이미 처리된 결제에 대해 회신만 다시 낸다. 앞선 회신이 유실됐을 수 있어서다.
 	 * 중복 회신은 order 쪽 방어선이 무시하지만, 안 보내면 order 가 영원히 대기한다.
 	 */
 	@Transactional
@@ -95,12 +95,12 @@ public class PaymentTransactionService {
 	}
 
 	/**
-	 * 결과를 모르던 결제를 확정한다. <b>복구 배치 전용.</b>
-	 * <p>
-	 * {@link #record} 와 다른 점은 둘이다 — 새 행을 만드는 게 아니라 있는 행을 옮기고,
-	 * {@code eventId} 없이도 회신을 낸다. 애초에 회신을 미뤄둔 결제라 지금 내지 않으면 아무도 안 낸다.
+	 * 결과를 모르던 결제를 확정한다. 복구 배치 전용.
 	 *
-	 * @return 이 호출이 확정했으면 {@code true}. 이미 누가 확정했으면 {@code false}
+	 * record 와 다른 점은 둘이다 — 새 행을 만드는 게 아니라 있는 행을 옮기고,
+	 * eventId 없이도 회신을 낸다. 애초에 회신을 미뤄둔 결제라 지금 내지 않으면 아무도 안 낸다.
+	 *
+	 * @return 이 호출이 확정했으면 true. 이미 누가 확정했으면 false
 	 */
 	@Transactional
 	public boolean settle(Payment payment, PgChargeResult result) {
@@ -132,7 +132,7 @@ public class PaymentTransactionService {
 		return true;
 	}
 
-	/** {@code eventId} 가 없으면(HTTP 진입) 멱등 판정 자체가 필요 없다. */
+	/** eventId 가 없으면(HTTP 진입) 멱등 판정 자체가 필요 없다. */
 	private boolean claim(UUID eventId, String orderNo) {
 		if (eventId == null) {
 			return true;
