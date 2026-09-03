@@ -5,14 +5,8 @@ import com.urban6.order.api.dto.PlaceOrderResponse;
 import com.urban6.order.domain.Order;
 import com.urban6.order.domain.OutOfStockException;
 import com.urban6.order.domain.Product;
-import com.urban6.order.domain.SagaInstance;
-import com.urban6.order.infra.messaging.ApprovePaymentCommand;
-import com.urban6.order.infra.messaging.EventEnvelope;
-import com.urban6.order.infra.messaging.EventType;
-import com.urban6.order.infra.messaging.OutboxWriter;
 import com.urban6.order.infra.persistence.OrderRepository;
 import com.urban6.order.infra.persistence.ProductRepository;
-import com.urban6.order.infra.persistence.SagaInstanceRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -32,31 +26,27 @@ public class PlaceOrderService {
 
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
-    private final SagaInstanceRepository sagaInstanceRepository;
     private final OrderNoGenerator orderNoGenerator;
-    private final OutboxWriter outboxWriter;
 
     public PlaceOrderService(OrderRepository orderRepository,
                              ProductRepository productRepository,
-                             SagaInstanceRepository sagaInstanceRepository,
-                             OrderNoGenerator orderNoGenerator,
-                             OutboxWriter outboxWriter) {
+                             OrderNoGenerator orderNoGenerator) {
         this.orderRepository = orderRepository;
         this.productRepository = productRepository;
-        this.sagaInstanceRepository = sagaInstanceRepository;
         this.orderNoGenerator = orderNoGenerator;
-        this.outboxWriter = outboxWriter;
     }
 
     /**
-     * 주문 생성 · 재고 예약 · <b>사가 시작 기록</b> · 결제 요청 적재를 하나의 로컬 트랜잭션으로 처리한다.
+     * 주문서 생성. 주문 INSERT 와 재고 예약을 하나의 로컬 트랜잭션으로 처리한다.
      * <p>
-     * 재고가 별도 서비스였을 때는 뒷 라인 예약이 실패해도 앞 라인이 이미 커밋돼 있어서
-     * 상쇄 UPDATE 로 되돌려야 했다. 같은 DB 로 들어온 지금은 <b>예외를 던지면 전부 롤백</b>된다.
-     * 주문도 예약도 outbox 행도 함께 사라지므로 사가가 시작되지 않는다.
+     * 여기서 사가를 시작하지 않는다. 결제창에서 사용자 인증이 끝나야 {@code paymentKey} 가 생기고,
+     * 그걸 들고 오는 confirm 요청이 사가의 시작점이다. 이 주문은 그때까지 {@code PENDING} 으로
+     * 기다리며, 돌아오지 않으면 만료 배치가 재고를 풀고 주문을 닫는다.
      * <p>
-     * 커밋되면 binlog 에 주문과 outbox 행이 함께 실리고, Debezium 이 그걸 읽어
-     * {@code payment.commands} 로 내보낸다. 발행 여부를 애플리케이션은 알지 못한다.
+     * 재고 예약은 여기서 한다. 결제창에 들어간 사용자가 승인 시점에 품절을 만나지 않게 하려는 것이고,
+     * 그 대가로 이탈한 주문의 재고를 시간 기준으로 풀어야 한다.
+     * <p>
+     * 뒷 라인 예약이 실패하면 <b>예외를 던져 전부 롤백</b>한다. 주문도 앞 라인 예약도 함께 사라진다.
      */
     @Transactional
     public PlaceOrderResponse place(PlaceOrderRequest request) {
@@ -72,18 +62,8 @@ public class PlaceOrderService {
         reserveStock(quantityByProduct);
         orderRepository.save(order);
 
-        // 커맨드를 적재하기 전에 "무엇을 기다리는지"를 먼저 남긴다.
-        // 같은 트랜잭션이라 순서 자체가 중요한 건 아니지만, 읽는 사람에게 인과가 드러난다.
-        SagaInstance saga = sagaInstanceRepository.save(SagaInstance.start(orderNo));
-
-        outboxWriter.append("Order", EventEnvelope.of(
-                EventType.APPROVE_PAYMENT,
-                orderNo,
-                new ApprovePaymentCommand(orderNo, order.getTotalAmount())
-        ));
-
-        log.info("order placed. orderNo={} sagaId={} customerId={} totalAmount={}",
-                orderNo, saga.getSagaId(), request.customerId(), order.getTotalAmount());
+        log.info("checkout created. orderNo={} customerId={} totalAmount={}",
+                orderNo, request.customerId(), order.getTotalAmount());
         return new PlaceOrderResponse(orderNo, order.getStatus(), order.getTotalAmount());
     }
 

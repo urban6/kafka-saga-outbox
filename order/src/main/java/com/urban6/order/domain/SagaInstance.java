@@ -87,20 +87,26 @@ public class SagaInstance implements Persistable<UUID> {
 	@Transient
 	private boolean isNew = true;
 
-	private SagaInstance(String orderNo) {
+	private SagaInstance(String orderNo, String paymentKey) {
 		this.sagaId = UUID.randomUUID();
 		this.orderNo = orderNo;
 		this.sagaType = ORDER_SAGA;
 		this.currentStep = SagaStep.APPROVE_PAYMENT;
 		this.status = SagaStatus.STARTED;
 		this.payload = new LinkedHashMap<>();
+		this.payload.put("paymentKey", paymentKey);
 		this.stepStartedAt = Instant.now();
 		this.retryCount = 0;
 	}
 
-	/** 주문 생성 트랜잭션에서 호출한다. 첫 단계는 언제나 결제 승인이다. */
-	public static SagaInstance start(String orderNo) {
-		return new SagaInstance(orderNo);
+	/**
+	 * confirm 요청 트랜잭션에서 호출한다. 첫 단계는 언제나 결제 승인이다.
+	 * <p>
+	 * {@code paymentKey} 를 payload 에 처음부터 남긴다. 원격 보상({@code CANCEL_PAYMENT})이 필요해지면
+	 * 취소할 결제를 이 키로 가리켜야 하는데, 재시작 후에는 여기 남은 것 말고는 알 길이 없다.
+	 */
+	public static SagaInstance start(String orderNo, String paymentKey) {
+		return new SagaInstance(orderNo, paymentKey);
 	}
 
 	/** 방어선 3겹째. 지금 기다리는 단계의 회신이 아니면 무시한다. */

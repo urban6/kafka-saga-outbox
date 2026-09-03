@@ -49,7 +49,7 @@ public class Order {
     private Order(String orderNo, String customerId) {
         this.orderNo = orderNo;
         this.customerId = customerId;
-        this.status = OrderStatus.CREATED;
+        this.status = OrderStatus.PENDING;
         this.totalAmount = BigDecimal.ZERO;
     }
 

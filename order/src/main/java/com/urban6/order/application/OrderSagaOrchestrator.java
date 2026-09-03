@@ -169,12 +169,12 @@ public class OrderSagaOrchestrator {
 				decision == SagaDecision.COMPLETE ? OrderStatus.COMPLETED : OrderStatus.CANCELED;
 
 		int orderMoved = orderRepository.transitionStatus(
-				orderNo, OrderStatus.CREATED, nextOrderStatus, now);
+				orderNo, OrderStatus.PAYMENT_REQUESTED, nextOrderStatus, now);
 		if (orderMoved == 0) {
-			// 사가는 STARTED 였는데 주문은 CREATED 가 아니다 = 둘이 어긋났다.
+			// 사가는 STARTED 였는데 주문은 PAYMENT_REQUESTED 가 아니다 = 둘이 어긋났다.
 			// 조용히 넘어가면 재고만 움직이고 주문은 그대로 남는다. 롤백시켜야 한다.
 			throw new IllegalStateException(
-					"order status mismatch. orderNo=" + orderNo + " expected=CREATED");
+					"order status mismatch. orderNo=" + orderNo + " expected=PAYMENT_REQUESTED");
 		}
 
 		log.info("saga applied. orderNo={} decision={} orderStatus={}", orderNo, decision, nextOrderStatus);

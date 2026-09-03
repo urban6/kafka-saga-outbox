@@ -35,7 +35,7 @@ public class OrderQueryService {
      * 하나는 {@code open-in-view: false} 아래에서 LAZY 인 {@code items} 를 읽을 경계를 만드는 것.
      * <p>
      * 다른 하나가 더 중요하다 — 주문과 사가를 <b>같은 스냅샷</b>에서 읽는다. 따로 읽으면 그 틈에
-     * 오케스트레이터가 전이시켜 {@code orders=CREATED} 인데 {@code saga=COMPLETED} 같은,
+     * 오케스트레이터가 전이시켜 {@code orders=PAYMENT_REQUESTED} 인데 {@code saga=COMPLETED} 같은,
      * 실재한 적 없는 조합이 응답에 실린다. 진단 도구가 거짓말하면 없느니만 못하다.
      * <p>
      * DTO 매핑도 이 안에서 끝낸다. 엔티티를 밖으로 내보내면 컨트롤러에서 LAZY 를 건드려 터진다.
