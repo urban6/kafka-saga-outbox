@@ -5,6 +5,7 @@ import com.urban6.order.domain.Order;
 import com.urban6.order.domain.SagaInstance;
 import com.urban6.order.infra.persistence.OrderRepository;
 import com.urban6.order.infra.persistence.SagaInstanceRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,16 +19,11 @@ import java.util.Optional;
  * 이쪽은 읽기 전용이고 쓰기 경로와 섞이면 안 된다.
  */
 @Service
+@RequiredArgsConstructor
 public class OrderQueryService {
 
     private final OrderRepository orderRepository;
     private final SagaInstanceRepository sagaInstanceRepository;
-
-    public OrderQueryService(OrderRepository orderRepository,
-                             SagaInstanceRepository sagaInstanceRepository) {
-        this.orderRepository = orderRepository;
-        this.sagaInstanceRepository = sagaInstanceRepository;
-    }
 
     /**
      * <b>트랜잭션이 두 가지 일을 한다.</b>

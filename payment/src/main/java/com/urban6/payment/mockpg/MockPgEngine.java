@@ -1,5 +1,6 @@
 package com.urban6.payment.mockpg;
 
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -26,6 +27,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * 도달하는 경로가 없다.
  */
 @Component
+@RequiredArgsConstructor
 public class MockPgEngine {
 
 	private static final Logger log = LoggerFactory.getLogger(MockPgEngine.class);
@@ -77,10 +79,6 @@ public class MockPgEngine {
 	private final Set<String> charging = ConcurrentHashMap.newKeySet();
 
 	private final MockPgFaults faults;
-
-	public MockPgEngine(MockPgFaults faults) {
-		this.faults = faults;
-	}
 
 	/**
 	 * Toss {@code POST /v1/billing/authorizations/card}. 같은 고객이 다시 등록하면 새 키가 나오고

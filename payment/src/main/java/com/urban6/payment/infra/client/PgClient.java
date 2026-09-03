@@ -1,5 +1,6 @@
 package com.urban6.payment.infra.client;
 
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatusCode;
@@ -20,6 +21,7 @@ import java.math.BigDecimal;
  * DB 커넥션이 그만큼 잡혀 있는다.
  */
 @Component
+@RequiredArgsConstructor
 public class PgClient {
 
 	private static final Logger log = LoggerFactory.getLogger(PgClient.class);
@@ -47,10 +49,6 @@ public class PgClient {
 	}
 
 	private final RestClient restClient;
-
-	public PgClient(RestClient pgRestClient) {
-		this.restClient = pgRestClient;
-	}
 
 	/**
 	 * Toss {@code POST /v1/billing/authorizations/card}. 카드번호는 이 호출로 우리 손을 떠난다.

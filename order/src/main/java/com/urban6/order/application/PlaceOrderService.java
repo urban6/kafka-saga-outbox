@@ -13,6 +13,7 @@ import com.urban6.order.infra.messaging.OutboxWriter;
 import com.urban6.order.infra.persistence.OrderRepository;
 import com.urban6.order.infra.persistence.ProductRepository;
 import com.urban6.order.infra.persistence.SagaInstanceRepository;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,7 @@ import java.util.stream.Collectors;
  * 사용자는 202 를 받은 뒤 주문 조회를 폴링해 결과를 본다.
  */
 @Service
+@RequiredArgsConstructor
 public class PlaceOrderService {
 
     private static final Logger log = LoggerFactory.getLogger(PlaceOrderService.class);
@@ -42,18 +44,6 @@ public class PlaceOrderService {
     private final SagaInstanceRepository sagaInstanceRepository;
     private final OutboxWriter outboxWriter;
     private final OrderNoGenerator orderNoGenerator;
-
-    public PlaceOrderService(OrderRepository orderRepository,
-                             ProductRepository productRepository,
-                             SagaInstanceRepository sagaInstanceRepository,
-                             OutboxWriter outboxWriter,
-                             OrderNoGenerator orderNoGenerator) {
-        this.orderRepository = orderRepository;
-        this.productRepository = productRepository;
-        this.sagaInstanceRepository = sagaInstanceRepository;
-        this.outboxWriter = outboxWriter;
-        this.orderNoGenerator = orderNoGenerator;
-    }
 
     /**
      * 재고 예약은 여기서 한다. 결제 승인 회신이 돌아올 때 품절을 만나지 않게 하려는 것이고,

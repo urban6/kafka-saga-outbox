@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,6 +30,7 @@ import java.time.Instant;
  */
 @RestController
 @RequestMapping("/v1/billing")
+@RequiredArgsConstructor
 public class MockBillingController {
 
 	public record IssueRequest(
@@ -58,10 +60,6 @@ public class MockBillingController {
 	}
 
 	private final MockPgEngine engine;
-
-	public MockBillingController(MockPgEngine engine) {
-		this.engine = engine;
-	}
 
 	@PostMapping("/authorizations/card")
 	public IssueResponse issue(@Valid @RequestBody IssueRequest request) {

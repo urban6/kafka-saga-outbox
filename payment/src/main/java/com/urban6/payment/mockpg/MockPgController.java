@@ -1,6 +1,7 @@
 package com.urban6.payment.mockpg;
 
 import com.urban6.payment.mockpg.MockPgEngine.PgPayment;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/v1/payments")
+@RequiredArgsConstructor
 public class MockPgController {
 
 	/** Toss 에러 응답 본문. 코드가 곧 재시도 여부의 판단 근거다. */
@@ -28,10 +30,6 @@ public class MockPgController {
 	}
 
 	private final MockPgEngine engine;
-
-	public MockPgController(MockPgEngine engine) {
-		this.engine = engine;
-	}
 
 	@GetMapping("/orders/{orderId}")
 	public PgPayment findByOrderId(@PathVariable String orderId) {

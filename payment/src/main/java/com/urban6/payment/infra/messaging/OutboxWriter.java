@@ -1,5 +1,6 @@
 package com.urban6.payment.infra.messaging;
 
+import lombok.RequiredArgsConstructor;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -10,15 +11,11 @@ import tools.jackson.databind.ObjectMapper;
  * {@code @Component} 를 붙이지 않은 이유는 {@link IdempotencyGuard} 와 같다. 어떤 서비스가 무엇을 쓸지는 라이브러리가 아니라 서비스 모듈의 {@code config} 가
  * 정한다.
  */
+@RequiredArgsConstructor
 public class OutboxWriter {
 
     private final OutboxRepository outboxRepository;
     private final ObjectMapper objectMapper;
-
-    public OutboxWriter(OutboxRepository outboxRepository, ObjectMapper objectMapper) {
-        this.outboxRepository = outboxRepository;
-        this.objectMapper = objectMapper;
-    }
 
     public void append(String aggregateType, EventEnvelope<?> envelope) {
         String payload = objectMapper.writeValueAsString(envelope);

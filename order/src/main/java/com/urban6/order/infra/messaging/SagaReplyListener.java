@@ -2,6 +2,7 @@ package com.urban6.order.infra.messaging;
 
 import com.urban6.order.application.OrderSagaOrchestrator;
 import com.urban6.order.config.KafkaConsumerConfig;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -14,15 +15,12 @@ import org.springframework.stereotype.Component;
  * 멱등성·상태 전이 판단은 전부 {@link OrderSagaOrchestrator} 몫이다.
  */
 @Component
+@RequiredArgsConstructor
 public class SagaReplyListener {
 
 	private static final Logger log = LoggerFactory.getLogger(SagaReplyListener.class);
 
 	private final OrderSagaOrchestrator orchestrator;
-
-	public SagaReplyListener(OrderSagaOrchestrator orchestrator) {
-		this.orchestrator = orchestrator;
-	}
 
 	@KafkaListener(
 			topics = Topics.ORDER_SAGA_REPLIES,

@@ -11,6 +11,7 @@ import com.urban6.order.infra.messaging.InboundEnvelope;
 import com.urban6.order.infra.persistence.OrderRepository;
 import com.urban6.order.infra.persistence.ProductRepository;
 import com.urban6.order.infra.persistence.SagaInstanceRepository;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +29,7 @@ import java.util.Map;
  * 방어선을 셋 두는 이유는 각각이 막는 상황이 다르기 때문이다.
  */
 @Service
+@RequiredArgsConstructor
 public class OrderSagaOrchestrator {
 
 	private static final Logger log = LoggerFactory.getLogger(OrderSagaOrchestrator.class);
@@ -54,19 +56,8 @@ public class OrderSagaOrchestrator {
 	 * {@code consumed_message.consumer_group} 에 들어가는 값.
 	 * 컨슈머 그룹과 반드시 같아야 하므로 상수로 박지 않고 같은 프로퍼티를 읽는다.
 	 */
+	@Value("${spring.kafka.consumer.group-id}")
 	private final String consumerGroup;
-
-	public OrderSagaOrchestrator(SagaInstanceRepository sagaInstanceRepository,
-								 OrderRepository orderRepository,
-								 ProductRepository productRepository,
-								 IdempotencyGuard idempotencyGuard,
-								 @Value("${spring.kafka.consumer.group-id}") String consumerGroup) {
-		this.sagaInstanceRepository = sagaInstanceRepository;
-		this.orderRepository = orderRepository;
-		this.productRepository = productRepository;
-		this.idempotencyGuard = idempotencyGuard;
-		this.consumerGroup = consumerGroup;
-	}
 
 	/**
 	 * 멱등 선점과 이후의 모든 처리가 <b>같은 트랜잭션</b>이어야 한다.

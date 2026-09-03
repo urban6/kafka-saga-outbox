@@ -6,6 +6,7 @@ import com.urban6.order.api.dto.OrderTraceResponse;
 import com.urban6.order.api.dto.PlaceOrderRequest;
 import com.urban6.order.api.dto.PlaceOrderResponse;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,18 +20,12 @@ import java.net.URI;
 
 @RestController
 @RequestMapping("/api/orders")
+@RequiredArgsConstructor
 public class OrderController {
 
     private final PlaceOrderService placeOrderService;
     private final OrderQueryService orderQueryService;
 
-    public OrderController(PlaceOrderService placeOrderService,
-                           OrderQueryService orderQueryService) {
-        this.placeOrderService = placeOrderService;
-        this.orderQueryService = orderQueryService;
-    }
-
-    /** 주문 접수가 곧 사가 시작이다. 비동기 작업을 받아둔 것이므로 202 이고, 결과는 Location 의 조회 API 를 폴링해 본다. */
     @PostMapping
     public ResponseEntity<PlaceOrderResponse> placeOrder(@Valid @RequestBody PlaceOrderRequest request) {
         PlaceOrderResponse response = placeOrderService.place(request);

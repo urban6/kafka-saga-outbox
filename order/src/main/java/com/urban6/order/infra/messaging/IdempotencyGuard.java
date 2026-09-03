@@ -3,6 +3,7 @@ package com.urban6.order.infra.messaging;
 import java.time.Instant;
 import java.util.UUID;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
@@ -16,6 +17,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * 서비스 모듈에서 빈으로 등록하려면 {@code config} 패키지에서 {@code @Bean} 으로 만들거나
  * {@code com.urban6.outbox} 를 컴포넌트 스캔 대상에 넣는다.
  */
+@RequiredArgsConstructor
 public class IdempotencyGuard {
 
 	// MariaDB/MySQL 전용. 이미 있는 행이면 0을 돌려주고 조용히 넘어간다.
@@ -28,10 +30,6 @@ public class IdempotencyGuard {
 	private static final String PURGE = "delete from consumed_message where processed_at < ?";
 
 	private final JdbcTemplate jdbcTemplate;
-
-	public IdempotencyGuard(JdbcTemplate jdbcTemplate) {
-		this.jdbcTemplate = jdbcTemplate;
-	}
 
 	/**
 	 * 이 메시지를 처음 처리하는 것이면 true. 이미 처리한 메시지면 false 이므로 호출부는 즉시 ack 하고 끝낸다.
