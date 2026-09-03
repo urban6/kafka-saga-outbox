@@ -21,12 +21,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
- * Toss 빌링(자동결제) API 모방.
- *
- * 카드 정보를 직접 받아 빌링키를 내는 건 실제 Toss 에도 있는 서버 API 다(심사 필요).
- * 그래서 결제창 대역 같은 가짜 경로 없이 /v1 안에 둔다.
- * 같은 애플리케이션 안에 있지만 payment 서비스는 이걸 실제 HTTP 로 호출한다 —
- * MockPgController 와 같은 이유다.
+ * Toss 빌링(자동결제) API 모방. 카드 정보를 받아 키를 내는 건 실제 Toss 에도 있는
+ * 서버 API 라 가짜 경로 없이 /v1 안에 둔다. 호출은 MockPgController 와 같이 실제 HTTP 다.
  */
 @RestController
 @RequestMapping("/v1/billing")
@@ -66,10 +62,7 @@ public class MockBillingController {
 		return IssueResponse.from(engine.issueBillingKey(request.customerKey(), request.cardNumber()));
 	}
 
-	/**
-	 * @param idempotencyKey 클라이언트가 보내는 멱등키(order_no). 이 Mock 은 orderId 로
-	 *                       중복을 판정하므로 실제로 쓰지는 않고, 헤더가 오는지 확인하는 용도다.
-	 */
+	/** @param idempotencyKey 이 Mock 은 orderId 로 중복을 판정하므로 헤더가 오는지 확인하는 용도다 */
 	@PostMapping("/{billingKey}")
 	public PgPayment charge(
 			@PathVariable String billingKey,

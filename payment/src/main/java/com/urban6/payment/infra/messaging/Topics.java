@@ -10,16 +10,13 @@ public final class Topics {
 	public static final String ORDER_SAGA_REPLIES = "order.saga.replies";
 
 	/**
-	 * DLT 접미사. 프레임워크 기본값에 맡기지 않고 우리가 고정한다.
-	 *
-	 * spring-kafka 4 의 기본값은 -dlt 이고 그전엔 .DLT 였다 — 즉 버전을 올리면
-	 * 토픽 이름이 조용히 바뀐다. DLT 이름은 운영이 알고 있어야 하는 계약이라 그런 변경이 나면 안 된다.
+	 * DLT 접미사. 프레임워크 기본값이 버전마다 달라(spring-kafka 4 는 -dlt, 그전엔 .DLT)
+	 * 우리가 고정한다. 운영이 아는 계약이라 업그레이드가 조용히 바꾸면 안 된다.
 	 */
 	public static final String DLT_SUFFIX = ".DLT";
 
 	/**
-	 * PAYMENT_COMMANDS 의 DLT. 재시도를 소진했거나 역직렬화가 불가능했던 커맨드가
-	 * 원본 그대로 남는다. PG 장애가 재시도 예산(2초 x 5)보다 오래가면 여기로 온다.
+	 * PAYMENT_COMMANDS 의 DLT. PG 장애가 재시도 예산(2초 x 5)보다 오래가면 여기로 온다.
 	 */
 	public static final String PAYMENT_COMMANDS_DLT = PAYMENT_COMMANDS + DLT_SUFFIX;
 

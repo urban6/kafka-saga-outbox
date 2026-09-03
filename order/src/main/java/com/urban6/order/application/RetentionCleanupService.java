@@ -13,13 +13,10 @@ import java.time.Instant;
 import java.util.function.IntUnaryOperator;
 
 /**
- * 보관 주기가 지난 운영 테이블을 지운다. outbox · consumed_message · api_idempotency 셋이 대상이다.
+ * 보관 주기가 지난 outbox · consumed_message · api_idempotency 를 지운다.
  *
- * @Transactional 이 없다. 일부러 없다 — 삭제를 한 트랜잭션으로 묶으면 배치 상한이 의미를 잃는다.
- * 호출마다 트랜잭션이 끊겨야 락이 실제로 풀리고, 다른 요청이 그 틈에 들어온다.
- *
- * 실패해도 다음 회차가 같은 일을 한다. 그래서 예외를 특별히 다루지 않는다 —
- * 정리 배치는 못 지우는 것보다 남의 트랜잭션을 막는 것이 훨씬 나쁘다.
+ * @Transactional 이 일부러 없다. 한 트랜잭션으로 묶으면 배치 상한이 의미를 잃는다 —
+ * 호출마다 트랜잭션이 끊겨야 락이 실제로 풀린다.
  */
 @Slf4j
 @Service
@@ -51,10 +48,8 @@ public class RetentionCleanupService {
 	}
 
 	/**
-	 * 상한만큼 지우기를 반복하다가, 지운 수가 상한에 못 미치면 더 지울 게 없다는 뜻이라 멈춘다.
-	 *
-	 * 반복 자체에도 상한을 둔다. 밀린 양이 많으면 다음 회차로 넘긴다 —
-	 * 한 번에 따라잡으려다 DB 를 독점하는 것보다 며칠에 걸쳐 줄어드는 편이 안전하다.
+	 * 상한만큼 반복하되, 지운 수가 상한에 못 미치면 더 지울 게 없다는 뜻이라 멈춘다.
+	 * 반복 자체에도 상한을 둔다 — 한 번에 따라잡으려다 DB 를 독점하는 것보다 낫다.
 	 */
 	private int purgeInBatches(IntUnaryOperator deleteBatch) {
 		int batchSize = properties.batchSize();

@@ -10,15 +10,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Toss Payments 스펙을 모방한 Mock PG — 조회와 에러 응답 형식.
+ * Toss 스펙을 모방한 Mock PG 의 조회 API. 청구는 MockBillingController 에 있다.
  *
- * 같은 애플리케이션 안에 있지만 payment 서비스는 이걸 실제 HTTP 로 호출한다.
- * 빈을 직접 주입해 부르면 코드는 짧아지지만 연결 타임아웃·읽기 타임아웃·소켓 끊김이
- * 재현되지 않아서 방어 코드를 검증할 수 없다.
- *
- * 청구는 MockBillingController(/v1/billing) 에 있다. 여기 조회 API 는
- * 타임아웃 뒤 in-doubt 를 푸는 경로이고, ALREADY_PROCESSED_PAYMENT 를 받았을 때
- * PG 가 들고 있는 진짜 paymentKey 를 가져오는 경로다.
+ * 같은 앱 안에 있지만 payment 는 이걸 실제 HTTP 로 호출한다 — 빈을 직접 주입하면
+ * 타임아웃과 소켓 끊김이 재현되지 않아 방어 코드를 검증할 수 없다.
  */
 @RestController
 @RequestMapping("/v1/payments")

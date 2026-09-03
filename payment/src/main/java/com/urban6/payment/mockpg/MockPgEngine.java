@@ -15,15 +15,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * PG 의 결제 상태와 판정 로직. 인메모리다.
+ * PG 의 결제 상태와 판정 로직. 외부 시스템이라 payment_db 를 쓰지 않고 인메모리다.
  *
- * payment_db 를 쓰지 않는 이유는 외부 시스템이기 때문이다. 같은 DB 를 쓰면 payment 서비스가
- * SQL 로 PG 상태를 들여다보는 지름길이 생기고, 그러면 조회 API 를 쓸 이유가 사라진다.
- * 재시작하면 날아가지만 이 프로젝트에서는 문제가 되지 않는다.
- *
- * 빌링(자동결제) 계약이다. 결제창 흐름과 달리 인증 단계가 없어서 charge 청구 한 번이
- * 결제의 시작이자 끝이다 — 그 호출에서 돈이 빠진다. 그래서 IN_PROGRESS/EXPIRED 에
- * 도달하는 경로가 없다.
+ * 빌링 계약이라 인증 단계가 없다 — 청구 한 번이 결제의 시작이자 끝이고 그 호출에서 돈이 빠진다.
+ * 그래서 IN_PROGRESS·EXPIRED 에 도달하는 경로가 없다.
  */
 @Slf4j
 @Component
@@ -35,12 +30,7 @@ public class MockPgEngine {
 		READY, IN_PROGRESS, DONE, CANCELED, ABORTED, EXPIRED
 	}
 
-	/**
-	 * PG 가 들고 있는 결제 1건. 응답 본문으로 그대로 나간다.
-	 *
-	 * @param requestedAt 청구 요청 시각
-	 * @param approvedAt  승인 시각. DONE 일 때만 값이 있다
-	 */
+	/** PG 가 들고 있는 결제 1건. 응답 본문으로 그대로 나간다. approvedAt 은 DONE 일 때만 있다. */
 	public record PgPayment(
 			String paymentKey,
 			String orderId,
@@ -70,17 +60,14 @@ public class MockPgEngine {
 	private final Map<String, BillingKey> byBillingKey = new ConcurrentHashMap<>();
 	private final Map<String, PgPayment> byOrderId = new ConcurrentHashMap<>();
 
-	/**
-	 * 청구 처리 중인 주문. 실제 Toss 에선 멱등키 레이어가 하는 일이다 —
-	 * 같은 주문의 청구가 겹치면 두 번째는 IDEMPOTENT_REQUEST_PROCESSING(409) 을 받는다.
-	 */
+	/** 청구 처리 중인 주문. 실제 Toss 의 멱등키 레이어를 흉내낸다 — 겹치면 두 번째가 409 를 받는다. */
 	private final Set<String> charging = ConcurrentHashMap.newKeySet();
 
 	private final MockPgFaults faults;
 
 	/**
-	 * Toss POST /v1/billing/authorizations/card. 같은 고객이 다시 등록하면 새 키가 나오고
-	 * 이전 키도 그대로 유효하다(Toss 동일). 폐기 API 는 이 프로젝트 범위 밖이다.
+	 * Toss POST /v1/billing/authorizations/card.
+	 * 재등록하면 새 키가 나오고 이전 키도 그대로 유효하다(Toss 동일).
 	 */
 	public BillingKey issueBillingKey(String customerKey, String cardNumber) {
 		BillingKey issued = new BillingKey(
@@ -93,12 +80,7 @@ public class MockPgEngine {
 
 	/**
 	 * Toss POST /v1/billing/{billingKey}. 여기서 돈이 빠진다.
-	 *
-	 * 검사를 통과한 뒤 charging 선점을 먼저 한다. 지연을 주입하는 순간 이게 의미를 갖는다 —
-	 * 지연 중에 들어온 두 번째 요청이 "처리 중" 응답을 받아야 한다.
-	 *
-	 * ABORTED 였던 주문에 다시 청구가 오면 새 결제로 덮어쓴다. 거절된 결제는 돈이 안 빠졌으므로
-	 * 같은 orderId 재청구를 막을 이유가 없다.
+	 * ABORTED 였던 주문에 재청구가 오면 새 결제로 덮어쓴다 — 거절된 결제는 돈이 안 빠졌다.
 	 */
 	public PgPayment charge(String billingKey, String customerKey, String orderId, BigDecimal amount) {
 		BillingKey key = byBillingKey.get(billingKey);
@@ -166,8 +148,8 @@ public class MockPgEngine {
 	}
 
 	/**
-	 * 요청 스레드를 실제로 묶는다. 이게 진짜 느린 PG 다 — 논블로킹으로 흉내내면 클라이언트 쪽
-	 * 소켓 read-timeout 이 발동하지 않아 검증할 게 없어진다.
+	 * 요청 스레드를 실제로 묶는다. 논블로킹으로 흉내내면 클라이언트 소켓의
+	 * read-timeout 이 발동하지 않아 in-doubt 검증이 통째로 무의미해진다.
 	 */
 	private void delayIfInjected(String orderId) {
 		Duration delay = faults.getDelay();

@@ -5,11 +5,8 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * EventEnvelope 를 직렬화해 outbox 에 INSERT 한다.
- *
- * 반드시 비즈니스 로직과 같은 트랜잭션 안에서 호출한다. 그래야 "주문은 저장됐는데 메시지는 안 나갔다"가 생기지 않는다.
- *
- * @Component 를 붙이지 않은 이유는 IdempotencyGuard 와 같다. 어떤 서비스가 무엇을 쓸지는 라이브러리가 아니라 서비스 모듈의 config 가
- * 정한다.
+ * 반드시 비즈니스 로직과 같은 트랜잭션에서 호출한다 —
+ * 그래야 "주문은 저장됐는데 메시지는 안 나갔다" 가 생기지 않는다.
  */
 @RequiredArgsConstructor
 public class OutboxWriter {

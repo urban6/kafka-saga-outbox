@@ -7,15 +7,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * 컨슈머 중복 처리 방지.
- *
- * 아웃박스는 at-least-once 라 같은 메시지가 두 번 올 수 있다. 처리 직전에
- * consumed_message 에 (messageId, consumerGroup) 을 선점해서, 이미 처리한 메시지면 건너뛴다.
- * 선점 INSERT 와 실제 처리는 같은 트랜잭션이어야 한다. 처리 도중 롤백되면 선점도 같이 풀려야
- * 재시도가 가능하기 때문이다.
- *
- * @Component 가 없다. 무엇을 쓸지는 인프라가 아니라 서비스가 정한다 —
- * config.MessagingConfig 가 @Bean 으로 등록한다.
+ * 컨슈머 중복 처리 방지. 처리 직전에 (messageId, consumerGroup) 을 선점하고,
+ * 이미 있으면 건너뛴다. 선점과 실제 처리는 반드시 같은 트랜잭션이어야 한다 —
+ * 분리하면 처리가 롤백돼도 선점만 남아 그 메시지는 영원히 재처리되지 않는다.
  */
 @RequiredArgsConstructor
 public class IdempotencyGuard {
@@ -31,9 +25,7 @@ public class IdempotencyGuard {
 
 	private final JdbcTemplate jdbcTemplate;
 
-	/**
-	 * 이 메시지를 처음 처리하는 것이면 true. 이미 처리한 메시지면 false 이므로 호출부는 즉시 ack 하고 끝낸다.
-	 */
+	/** 처음 보는 메시지면 true. false 면 호출부는 즉시 ack 하고 끝낸다. */
 	public boolean claim(UUID messageId, String consumerGroup, String eventType) {
 		int inserted = jdbcTemplate.update(CLAIM,
 				messageId.toString(), consumerGroup, eventType, java.sql.Timestamp.from(Instant.now()));
@@ -42,11 +34,7 @@ public class IdempotencyGuard {
 
 	/**
 	 * 보관 주기가 지난 처리 이력 정리. idx_processed 를 탄다.
-	 *
-	 * 보관 기간은 Kafka retention 보다 길어야 한다. 짧으면 재전달된 메시지를 처음 보는 것으로 착각해
-	 * 중복 처리한다 — 결제라면 이중 청구다.
-	 *
-	 * limit 으로 한 번에 지우는 양을 묶는다. 무제한 DELETE 는 락을 오래 잡는다.
+	 * 보관 기간은 Kafka retention 보다 길어야 한다 — 짧으면 재전달을 신규로 착각해 이중 청구가 난다.
 	 */
 	public int purgeProcessedBefore(Instant threshold, int batchSize) {
 		return jdbcTemplate.update(PURGE, java.sql.Timestamp.from(threshold), batchSize);

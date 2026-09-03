@@ -1,8 +1,7 @@
 package com.urban6.order.domain;
 
 /**
- * 재고 부족. 요청 형식은 멀쩡하고 서버도 정상인데 지금 이 순간의 상태 때문에 실패한 것이므로
- * 400 이 아니라 409 로 응답한다. 클라이언트가 값을 고쳐서 재시도할 성질의 실패가 아니다.
+ * 재고 부족. 요청도 서버도 멀쩡하고 지금 이 순간의 상태 때문에 실패한 것이라 400 이 아니라 409 다.
  */
 public class OutOfStockException extends RuntimeException {
 

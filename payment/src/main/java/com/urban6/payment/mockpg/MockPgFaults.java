@@ -6,14 +6,8 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 
 /**
- * Mock PG 장애 주입 스위치.
- *
- * record 가 아니다. 확률만으로는 "이번 호출은 반드시 타임아웃" 을 만들 수 없어 검증이
- * 재현되지 않는다. 앱 재시작 없이 켜고 끌 수 있어야 하므로 가변이고, Tomcat 워커 여러 개가
- * 동시에 읽으므로 필드는 volatile 이다.
- *
- * 이 클래스가 mockpg 패키지에 있는 이유는 payment 도메인이 이걸 알면 안 되기 때문이다.
- * 장애는 외부 시스템의 사정이지 우리 설정이 아니다.
+ * Mock PG 장애 주입 스위치. 앱 재시작 없이 켜고 끄려고 record 가 아니라 가변 클래스다.
+ * Tomcat 워커 여러 개가 동시에 읽으므로 필드는 volatile 이다.
  */
 @Component
 @ConfigurationProperties(prefix = "mockpg")

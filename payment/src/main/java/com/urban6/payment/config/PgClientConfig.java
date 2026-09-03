@@ -9,14 +9,10 @@ import org.springframework.web.client.RestClient;
 import java.time.Duration;
 
 /**
- * PG 호출용 RestClient.
+ * PG 호출용 RestClient. 타임아웃을 반드시 명시한다 — 기본값이 무제한이라
+ * Kafka 리스너가 이 경로를 탈 때 파티션 하나가 통째로 멈출 수 있다.
  *
- * 타임아웃을 반드시 명시한다. 기본값(무제한)이면 PG 가 응답을 안 줄 때 호출 스레드가
- * 영원히 묶인다. 나중에 Kafka 리스너가 이 경로를 타면 파티션 하나가 통째로 멈추게 된다.
- *
- * Boot 4 는 RestClient.Builder 오토컨피그를 별도 모듈(spring-boot-restclient)로
- * 분리했다. 여기서는 baseUrl 과 요청 팩토리를 어차피 직접 지정하므로 의존성을 늘리지 않고
- * RestClient.builder() 로 만든다.
+ * Boot 4 는 RestClient.Builder 오토컨피그가 별도 모듈이라 builder() 로 직접 만든다.
  */
 @Configuration
 public class PgClientConfig {

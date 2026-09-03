@@ -21,14 +21,10 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * 결제 결과를 DB 에 확정하는 트랜잭션 경계.
+ * 결제 결과를 DB 에 확정하는 트랜잭션 경계. 멱등 선점 · 결제 확정 · 회신 적재가 한 트랜잭션이다.
  *
- * ApprovePaymentService 와 별개 빈인 이유 — 같은 클래스 안에서 @Transactional
- * 메서드를 부르면 프록시를 타지 않아 트랜잭션이 안 걸린다. PG 호출은 트랜잭션 밖, 그 반영은 안이어야
- * 하므로 이 경계는 빈 사이의 호출일 수밖에 없다.
- *
- * 트랜잭션 하나에 멱등 선점 · 결제 확정 · 회신 적재 가 함께 들어간다. 하나라도 밖으로 빼면
- * "결제는 됐는데 회신이 없다" 또는 "선점만 남아 영영 재처리되지 않는다" 가 생긴다.
+ * ApprovePaymentService 와 별개 빈이어야 한다 — 같은 클래스 안에서 @Transactional 메서드를
+ * 부르면 프록시를 안 타서 트랜잭션이 안 걸린다.
  */
 @Slf4j
 @Service
@@ -82,7 +78,7 @@ public class PaymentTransactionService {
 
 	/**
 	 * 이미 처리된 결제에 대해 회신만 다시 낸다. 앞선 회신이 유실됐을 수 있어서다.
-	 * 중복 회신은 order 쪽 방어선이 무시하지만, 안 보내면 order 가 영원히 대기한다.
+	 * 중복은 order 방어선이 무시하지만, 안 보내면 order 가 영원히 대기한다.
 	 */
 	@Transactional
 	public Payment replayReply(Payment existing, UUID eventId) {
@@ -94,10 +90,8 @@ public class PaymentTransactionService {
 	}
 
 	/**
-	 * 결과를 모르던 결제를 확정한다. 복구 배치 전용.
-	 *
-	 * record 와 다른 점은 둘이다 — 새 행을 만드는 게 아니라 있는 행을 옮기고,
-	 * eventId 없이도 회신을 낸다. 애초에 회신을 미뤄둔 결제라 지금 내지 않으면 아무도 안 낸다.
+	 * 결과를 모르던 결제를 확정한다. 복구 배치 전용이라 record 와 둘이 다르다 —
+	 * 새 행을 만드는 게 아니라 있는 행을 옮기고, eventId 없이도 회신을 낸다.
 	 *
 	 * @return 이 호출이 확정했으면 true. 이미 누가 확정했으면 false
 	 */
@@ -131,12 +125,8 @@ public class PaymentTransactionService {
 		return true;
 	}
 
-	/**
-	 * eventId 가 없으면(HTTP 진입) 멱등 판정 자체가 필요 없다.
-	 *
-	 * event_type 은 리터럴이 아니라 CommandType 에서 가져온다. 이 컬럼은 사후 진단에만
-	 * 쓰여서 틀려도 아무도 모르기 때문이다 — 커맨드가 늘 때 조용히 어긋나지 않게 한곳에 묶어둔다.
-	 */
+	/** eventId 가 없으면(HTTP 진입) 멱등 판정 자체가 필요 없다. */
+	// event_type 은 사후 진단에만 쓰여 틀려도 아무도 모른다. 그래서 리터럴 대신 CommandType 에 묶는다.
 	private boolean claim(UUID eventId, String orderNo) {
 		if (eventId == null) {
 			return true;

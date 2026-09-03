@@ -1,17 +1,11 @@
 package com.urban6.payment.infra.client;
 
 /**
- * PG 청구의 결론. 응답 코드가 아니라 유스케이스가 알아야 하는 것으로 줄인 것이다.
- * 호출부는 HTTP 상태나 Toss 에러 코드를 몰라도 된다.
- *
+ * PG 청구의 결론. 호출부는 HTTP 상태나 Toss 에러 코드를 몰라도 된다.
  * 네 갈래를 가르는 기준은 하나다 — 돈이 빠졌는가.
- * 승인/거절은 답을 알고, RETRYABLE 은 "안 빠진 게 확실",
- * IN_DOUBT 는 "모른다" 다. 모름을 거절로 접으면 이미 받은 돈에 보상이 돌고,
- * 재시도로 접으면 이중 결제가 난다. 그래서 셋이 아니라 넷이다.
  *
- * @param paymentKey  승인됐을 때만 값이 있다. PG 가 확인해준 식별자
- * @param failureCode 승인이 아닐 때의 근거 코드. payment.failure_code 에 그대로 남는다.
- *                    Toss 코드일 수도, 우리가 판정한 코드(NO_BILLING_KEY, PG_TIMEOUT)일 수도 있다
+ * @param paymentKey  승인됐을 때만 값이 있다
+ * @param failureCode Toss 코드일 수도, 우리가 판정한 코드(NO_BILLING_KEY, PG_TIMEOUT)일 수도 있다
  */
 public record PgChargeResult(
 		Outcome outcome,

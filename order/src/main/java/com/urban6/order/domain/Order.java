@@ -72,12 +72,8 @@ public class Order {
     /**
      * 상품별 수량. 주문 접수에서 중복 라인을 막았으므로 상품당 한 행이다.
      *
-     * 순서가 예약과 같아야 한다(TreeMap). 예약과 확정·해제는 다른 트랜잭션이라
-     * 락 순서가 어긋나면 그 둘 사이에 데드락이 난다. 반환 타입을 SortedMap 으로
-     * 좁힌 건 그 정렬을 주석이 아니라 컴파일러가 지키게 하려는 것이다.
-     *
-     * 병합 함수는 도달하지 않지만 던진다. uk_order_product 가 뚫렸는데 조용히
-     * 덮어쓰면 예약한 수량과 확정하는 수량이 어긋나 재고가 샌다.
+     * 예약과 같은 정렬이어야 한다(TreeMap). 예약과 확정·해제는 다른 트랜잭션이라
+     * 락 순서가 어긋나면 그 둘 사이에 데드락이 난다. SortedMap 이 그걸 컴파일러에 맡긴다.
      */
     public SortedMap<String, Integer> quantitiesByProduct() {
         return items.stream().collect(Collectors.toMap(

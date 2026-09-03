@@ -17,12 +17,8 @@ import org.springframework.data.domain.Persistable;
 import java.time.Instant;
 
 /**
- * 고객이 등록한 카드의 빌링키. 고객당 하나다.
- *
- * 카드번호는 여기 없다. PG 에 보내 키를 받는 순간 우리 손을 떠나고, 남는 건 화면에 보여줄
- * 끝 4자리뿐이다. 이 서비스가 카드 정보를 저장하지 않는 것이 PCI 경계다.
- *
- * 재등록은 덮어쓴다. PG 쪽 이전 키는 그대로 유효하지만(Toss 동일) 우리는 최신 하나만 쓴다.
+ * 고객이 등록한 카드의 빌링키. 고객당 하나이며 재등록은 덮어쓴다.
+ * 카드번호는 여기 없다 — 남는 건 끝 4자리뿐이고, 그게 이 서비스의 PCI 경계다.
  */
 @Entity
 @Table(name = "billing_key")

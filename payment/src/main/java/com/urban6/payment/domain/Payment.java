@@ -20,14 +20,10 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
- * 결제 1건. 주문 하나당 하나다(uk_order_no).
+ * 결제 1건. 주문 하나당 하나이며 그 uk_order_no 가 이 서비스의 멱등 장치다.
  *
- * 그 유니크 제약이 이 서비스의 멱등 장치다. 같은 주문에 대한 승인 요청이 두 번 들어와도
- * 두 번째 INSERT 는 제약 위반으로 막힌다.
- *
- * 상태 전이 메서드를 두지 않았다. 승인 경로는 PG 응답을 받은 뒤 결과와 함께 INSERT 하고,
- * in-doubt 해소는 리포지토리의 조건부 UPDATE(settleApproved/settleRejected)로 한다.
- * 엔티티에 approve() 를 두면 "조회 → 검사 → 저장"이 되어 응답이 두 번 들어올 때 둘 다 통과한다.
+ * 상태 전이 메서드를 두지 않는다. 엔티티에 approve() 를 두면 "조회 → 검사 → 저장" 이 되어
+ * 응답이 두 번 들어올 때 둘 다 통과한다. 전이는 리포지토리의 조건부 UPDATE 로만 한다.
  */
 @Entity
 @Table(name = "payment")
@@ -35,11 +31,7 @@ import java.time.Instant;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Payment implements Persistable<String> {
 
-	/**
-	 * 우리가 발급하는 결제 식별자. PG 에는 보내지 않는 내부 값이다.
-	 *
-	 * order_no 처럼 형식을 갖추지 않는 이유는 고객에게 노출되지 않기 때문이다.
-	 */
+	/** 우리가 발급하는 내부 식별자. 고객에게 노출되지 않아 order_no 같은 형식을 갖추지 않는다. */
 	@Id
 	@Column(name = "payment_id", nullable = false, length = 64)
 	private String paymentId;
@@ -55,9 +47,8 @@ public class Payment implements Persistable<String> {
 	private PaymentStatus status;
 
 	/**
-	 * PG 가 응답으로 확인해준 결제 식별자. 보통은 빌링 청구 응답에서 오고,
-	 * ALREADY_PROCESSED_PAYMENT 처럼 이전 시도가 성사된 경우엔 조회로 가져온 그때의 키가 들어온다.
-	 * 저장하는 건 언제나 PG 가 확인해준 값이다.
+	 * PG 가 응답으로 확인해준 결제 식별자. 보통은 청구 응답에서 오고,
+	 * ALREADY_PROCESSED_PAYMENT 면 조회로 가져온 그때의 키가 들어온다.
 	 */
 	@Column(name = "payment_key", length = 128)
 	private String paymentKey;
@@ -75,12 +66,8 @@ public class Payment implements Persistable<String> {
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt;
 
-	/**
-	 * payment_id 를 코드에서 직접 할당하므로 Spring Data 가 "새 엔티티"인지 판단할 근거가 없다.
-	 * 그냥 두면 save() 가 merge() 로 가서 INSERT 앞에 불필요한 SELECT 를 한 번 더 한다.
-	 *
-	 * DB 에 없는 컬럼이라 @Transient 이며, 반드시 jakarta.persistence.Transient 여야 한다.
-	 */
+	// PK 직접 할당이라 이게 없으면 save() 가 merge() 로 가서 INSERT 앞에 SELECT 가 하나 더 나간다.
+	// 반드시 jakarta.persistence.Transient 여야 한다.
 	@Transient
 	private boolean isNew = true;
 
@@ -106,14 +93,8 @@ public class Payment implements Persistable<String> {
 	}
 
 	/**
-	 * 결과를 모르는 결제. 돈이 빠졌는지 확인되지 않았다.
-	 *
-	 * 승인으로 저장하면 없는 결제의 키를 들고 있게 되고, 거절로 저장하면 이미 받은 돈에
-	 * 보상이 돈다. 둘 다 틀릴 수 있으므로 아직 답하지 않는다 는 상태를 남긴다.
-	 * 복구 배치가 조회로 해소할 때까지 이 행은 미완결이다.
-	 *
-	 * failureCode 에는 거절 근거가 아니라 왜 모르게 됐는지가 들어간다
-	 * (PG_TIMEOUT 등). 사후에 "무엇이 우리를 눈멀게 했나" 를 세려면 이게 필요하다.
+	 * 돈이 빠졌는지 모르는 결제. 승인으로도 거절로도 저장할 수 없어 "아직 답하지 않는다" 를 남긴다.
+	 * failureCode 에는 거절 근거가 아니라 왜 모르게 됐는지(PG_TIMEOUT 등)가 들어간다.
 	 */
 	public static Payment inDoubt(String paymentId, String orderNo, BigDecimal amount,
 			String failureCode, String failureReason) {

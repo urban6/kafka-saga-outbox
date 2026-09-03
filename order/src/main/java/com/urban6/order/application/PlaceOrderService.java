@@ -84,10 +84,8 @@ public class PlaceOrderService {
     }
 
     /**
-     * 이미 처리한 키다. 새 주문을 만들지 않고 같은 주문을 다시 돌려준다.
-     *
-     * 최초 응답을 통째로 저장해두지 않는 이유는, 이 API 의 응답이 어차피 폴링으로 갱신되는 스냅샷이라
-     * 지금 상태를 담아주는 편이 더 쓸모 있어서다. 클라이언트가 붙잡고 있는 건 orderNo 이고, 그건 그대로다.
+     * 이미 처리한 키다. 새 주문을 만들지 않고 같은 주문의 현재 상태를 돌려준다.
+     * 최초 응답을 저장해두지 않는 건 어차피 폴링으로 갱신되는 스냅샷이기 때문이다.
      */
     private PlaceOrderResponse replay(String idempotencyKey, PlaceOrderRequest request) {
         ApiIdempotencyStore.Claimed claimed = apiIdempotencyStore.find(idempotencyKey)
@@ -121,13 +119,10 @@ public class PlaceOrderService {
     }
 
     /**
-     * 상품별 수량. 검증이 중복 productId 를 이미 막았으므로 라인과 1:1 이다.
+     * 상품별 수량. 검증이 중복 productId 를 막았으므로 라인과 1:1 이다.
      *
-     * TreeMap 의 정렬 순서가 곧 락 획득 순서다. 요청 순서대로 두면 상품을 반대로 담은
-     * 동시 주문끼리 데드락이 난다. 확정·해제(Order.quantitiesByProduct())도 같은 정렬이어야 한다.
-     * 반환 타입을 SortedMap 으로 좁힌 건 그 정렬을 주석이 아니라 컴파일러가 지키게 하려는 것이다.
-     *
-     * 병합 함수는 도달하지 않지만 던진다. 검증이 뚫렸는데 조용히 덮어쓰면 수량이 소리 없이 틀어진다.
+     * TreeMap 의 정렬이 곧 재고 락 획득 순서다. 확정·해제(Order.quantitiesByProduct())도
+     * 같은 정렬이어야 하고, SortedMap 으로 좁힌 건 그걸 컴파일러가 지키게 하려는 것이다.
      */
     private SortedMap<String, Integer> quantitiesByProduct(PlaceOrderRequest request) {
         return request.items().stream().collect(Collectors.toMap(
@@ -158,8 +153,7 @@ public class PlaceOrderService {
 
     /**
      * 조건부 UPDATE 로 예약한다. 갱신 행 수가 0 이면 가용 수량이 모자란 것이다.
-     * 조회해서 재고를 확인한 뒤 예약하는 게 아니라 검사와 예약이 한 문장이므로,
-     * 동시 주문이 몰려도 초과 예약이 나올 수 없다.
+     * 검사와 예약이 한 문장이라 동시 주문이 몰려도 초과 예약이 나올 수 없다.
      */
     private void reserveStock(SortedMap<String, Integer> quantityByProduct) {
         Instant now = Instant.now();

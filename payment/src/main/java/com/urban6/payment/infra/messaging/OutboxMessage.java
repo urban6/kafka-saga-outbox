@@ -14,22 +14,14 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 /**
- * outbox 테이블 매핑. Debezium Outbox Event Router 가 읽어가는 형태다.
- *
- * 도메인 변경과 같은 로컬 트랜잭션에서 이 행을 INSERT 하면, Debezium 이 binlog 에서 그 INSERT 를
- * 집어 카프카로 라우팅한다. 그래서 "DB 는 커밋됐는데 메시지는 안 나갔다"가 생기지 않는다(at-least-once).
- *
- * 애플리케이션은 이 테이블을 쓰기만 한다. 발행 상태(status/retry_count/sent_at)를 두지 않는 이유는
- * 발행 진행을 추적하는 주체가 애플리케이션이 아니라 커넥터의 binlog 오프셋이기 때문이다.
+ * outbox 테이블 매핑. Debezium Outbox Event Router 가 binlog 에서 읽어가는 형태다.
+ * 애플리케이션은 INSERT 만 한다 — 발행 진행을 아는 주체는 우리가 아니라 커넥터의 오프셋이다.
  */
 @Entity
 @Table(name = "outbox")
 public class OutboxMessage {
 
-	/**
-	 * 이벤트 고유 식별자. EventEnvelope.eventId 와 같은 값이며 컨슈머 멱등 키
-	 * (consumed_message.message_id)로도 쓰인다.
-	 */
+	/** EventEnvelope.eventId 와 같은 값이며 컨슈머 멱등 키(consumed_message.message_id)로도 쓰인다. */
 	@Id
 	@JdbcTypeCode(SqlTypes.CHAR)
 	@Column(name = "id", nullable = false, length = 36)
@@ -73,10 +65,9 @@ public class OutboxMessage {
 	}
 
 	/**
-	 * 발행할 행을 만든다. 토픽은 EventType 이 고정으로 들고 있는 값을 그대로 쓴다.
+	 * 발행할 행을 만든다. 토픽은 EventType 이 들고 있는 값을 그대로 쓴다.
 	 *
 	 * @param eventId 발행할 EventEnvelope 의 eventId 와 반드시 같은 값
-	 * @param payload 직렬화된 EventEnvelope JSON
 	 */
 	public static OutboxMessage of(UUID eventId, String aggregateType, String aggregateId,
 			EventType eventType, String payload) {

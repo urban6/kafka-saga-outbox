@@ -11,14 +11,8 @@ import java.io.IOException;
 import java.math.BigDecimal;
 
 /**
- * Mock PG 호출.
- *
- * 이 클래스가 하는 일은 Toss 에러 코드를 우리 결론으로 번역하는 것 하나다.
- * 결제 도메인은 ALREADY_PROCESSED_PAYMENT 같은 문자열을 알 필요가 없다.
- *
- * 멱등키는 order_no 다. 같은 주문을 두 번 청구해도 PG 가 한 번만 처리한다.
- * 트랜잭션 밖에서 호출한다 — 외부 I/O 가 트랜잭션 안에 들어오면 PG 가 느려질 때
- * DB 커넥션이 그만큼 잡혀 있는다.
+ * Mock PG 호출. 하는 일은 Toss 에러 코드를 우리 결론(PgChargeResult)으로 번역하는 것 하나다.
+ * 멱등키는 order_no 이고, 반드시 트랜잭션 밖에서 호출한다.
  */
 @Slf4j
 @Component
@@ -52,8 +46,7 @@ public class PgClient {
 
 	/**
 	 * Toss POST /v1/billing/authorizations/card. 카드번호는 이 호출로 우리 손을 떠난다.
-	 *
-	 * 청구와 달리 결론으로 번역하지 않는다. 발급은 사가 밖의 동기 HTTP 라 실패를 그대로 돌려주면 된다.
+	 * 청구와 달리 결론으로 번역하지 않는다 — 사가 밖의 동기 HTTP 라 실패를 그대로 돌려주면 된다.
 	 */
 	public IssuedBillingKey issueBillingKey(String customerId, String cardNumber) {
 		return restClient.post()
@@ -78,12 +71,8 @@ public class PgClient {
 	/**
 	 * Toss POST /v1/billing/{billingKey}. 여기서 돈이 빠진다.
 	 *
-	 * 빌링키는 URL 에, 고객 식별자는 본문에 간다. PG 는 둘이 같은 고객의 것인지 대조한다 —
-	 * 그래서 다른 고객의 키로는 청구가 안 된다.
-	 *
-	 * 타임아웃은 거절이 아니다. 요청이 안 갔을 수도, 갔는데 응답만 유실됐을 수도 있다.
-	 * 후자면 돈은 이미 빠졌다. 소켓이 끊긴 것과 결제가 실패한 것은 다른 사건이라
-	 * IN_DOUBT 로 올려보내고 조회로 해소한다.
+	 * 타임아웃은 거절이 아니다 — 요청이 안 갔을 수도, 갔는데 응답만 유실됐을 수도 있다.
+	 * 후자면 돈은 이미 빠졌으므로 IN_DOUBT 로 올려보내고 조회로 해소한다.
 	 */
 	public PgChargeResult charge(String orderNo, String billingKey, String customerId, BigDecimal amount) {
 		try {
@@ -99,10 +88,7 @@ public class PgClient {
 		}
 	}
 
-	/**
-	 * exchange 를 쓰는 이유: 기본 에러 핸들링은 4xx/5xx 에 예외를 던져버려서
-	 * 에러 본문의 code 를 읽을 수 없다. 우리에겐 그 코드가 판단 근거다.
-	 */
+	// exchange 를 쓰는 건 기본 에러 핸들링이 4xx/5xx 에 예외를 던져 본문의 code 를 못 읽게 해서다.
 	private PgChargeResult map(String orderNo,
 			RestClient.RequestHeadersSpec.ConvertibleClientHttpResponse response) throws IOException {
 
@@ -151,14 +137,10 @@ public class PgClient {
 	}
 
 	/**
-	 * 조회 API 로 PG 가 실제로 들고 있는 결제를 확인한다. 대사(reconciliation)의 유일한 경로다.
+	 * 조회 API 로 PG 가 실제로 들고 있는 결제를 확인한다. 대사의 유일한 경로이며 두 곳에서 쓴다 —
+	 * ALREADY_PROCESSED_PAYMENT 에서 진짜 paymentKey 를 얻을 때, IN_DOUBT 를 나중에 해소할 때.
 	 *
-	 * 두 곳에서 쓴다 — ALREADY_PROCESSED_PAYMENT 응답에서 진짜 paymentKey 를 얻을 때,
-	 * 그리고 IN_DOUBT 로 남은 결제를 나중에 해소할 때. 같은 질문이라 같은 코드다.
-	 *
-	 * 조회가 실패해도 던지지 않는다. 예전엔 던졌다 — 승인으로도 거절로도 저장할 수 없어서였다.
-	 * 이제 IN_DOUBT 라는 제3의 답이 있으므로 그대로 올려보내고 복구 배치가 다시 묻는다.
-	 * Kafka 재시도로 같은 호출을 계속 두드리는 것보다, 상태를 남기고 물러나는 쪽이 낫다.
+	 * 조회가 실패해도 던지지 않고 IN_DOUBT 로 올려보낸다. 복구 배치가 다시 물어보면 된다.
 	 */
 	public PgChargeResult reconcile(String orderNo) {
 		try {

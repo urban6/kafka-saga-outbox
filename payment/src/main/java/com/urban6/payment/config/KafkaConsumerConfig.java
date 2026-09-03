@@ -17,14 +17,10 @@ import org.springframework.util.backoff.FixedBackOff;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * 커맨드 컨슈머의 역직렬화 파이프라인.
+ * 커맨드 컨슈머의 역직렬화 파이프라인. yaml 이 아니라 자바인 것은 대상 타입을 못 박아
+ * 넘기기 위해서다 — 프로퍼티 방식은 메시지의 타입 헤더에 의존하는데 Debezium 은 그걸 안 보낸다.
  *
- * yaml 대신 자바로 만드는 이유는 JacksonJsonDeserializer 에 대상 타입을 못 박아
- * 넘겨야 하기 때문이다. 프로퍼티로 지정하는 방식은 메시지의 타입 헤더에 의존한다.
- *
- * 커스텀 JsonMapper 빈을 만들지 않는다. Jackson 3 는 모르는 필드를 기본으로
- * 무시하므로(tolerant reader 가 기본값) 따로 설정할 게 없고, JsonMapper extends ObjectMapper
- * 라서 직접 등록하면 Boot 의 ObjectMapper 오토컨피그가 물러나
+ * 커스텀 JsonMapper 빈을 만들지 않는다 — 그러면 Boot 의 ObjectMapper 오토컨피그가 물러나
  * OutboxWriter 의 직렬화 규칙까지 딸려 바뀐다.
  */
 @Configuration
@@ -34,11 +30,8 @@ public class KafkaConsumerConfig {
 	public static final String CONTAINER_FACTORY = "paymentCommandListenerContainerFactory";
 
 	/**
-	 * 값 역직렬화는 ErrorHandlingDeserializer 로 감싼다(poison pill 방어).
-	 *
-	 * 깨진 JSON 이 오면 예외를 리스너까지 올리는 대신 값을 null 로 만들고 헤더에 예외를 실어
-	 * 에러 핸들러가 그 레코드만 건너뛰게 한다. 감싸지 않으면 역직렬화 예외가 무한 재시도되어
-	 * 파티션 하나가 통째로 멈춘다.
+	 * ErrorHandlingDeserializer 로 감싼다. 깨진 JSON 은 값이 null 이 되고 예외가 헤더에 실려
+	 * 그 레코드만 건너뛴다. 안 감싸면 하나가 파티션을 통째로 멈춘다.
 	 */
 	@Bean
 	public ConsumerFactory<String, InboundEnvelope> paymentCommandConsumerFactory(
@@ -55,11 +48,8 @@ public class KafkaConsumerConfig {
 	}
 
 	/**
-	 * 파티션이 3개라 concurrency 도 3. 더 올려도 컨슈머 하나는 놀게 된다.
-	 *
-	 * DefaultErrorHandler 는 2초 간격 5회 재시도 후 DLT 로 넘긴다.
-	 * 역직렬화 예외는 재시도 대상에서 기본 제외되므로 backoff 를 거치지 않고
-	 * 첫 실패에서 곧장 DLT 로 간다 — 몇 번을 다시 읽어도 같은 바이트다.
+	 * 파티션이 3개라 concurrency 도 3. 에러 핸들러는 2초 간격 5회 재시도 뒤 DLT 로 넘긴다 —
+	 * RETRYABLE 이 실제 경로라 예산을 늘렸다. 역직렬화 예외는 재시도 없이 곧장 DLT 로 간다.
 	 */
 	@Bean(CONTAINER_FACTORY)
 	public ConcurrentKafkaListenerContainerFactory<String, InboundEnvelope> paymentCommandListenerContainerFactory(

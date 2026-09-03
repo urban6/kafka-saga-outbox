@@ -7,12 +7,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * payment 가 받아들이는 커맨드. 값이 하나뿐인 건 order 가 보내는 원격 단계가 결제 청구
- * 하나이기 때문이다 — 보상 커맨드는 없다(pivot 이후는 재시도로 민다).
- *
- * 그래도 enum 과 fromWire 를 두는 이유는 모르는 값을 만났을 때 다.
- * valueOf 였다면 order 가 커맨드를 하나 추가하는 순간 그 메시지에서 예외가 나고,
- * 재시도해도 결과가 같아 에러 핸들러가 포기할 때까지(2초 간격 5회) 같은 파티션의 뒷 메시지가 밀린다.
+ * payment 가 받아들이는 커맨드. 값이 하나뿐인 건 원격 단계가 결제 청구 하나여서다.
+ * 그래도 fromWire 를 두는 건 모르는 값 때문이다 — valueOf 였다면 order 가 커맨드를
+ * 추가하는 순간 그 메시지가 재시도를 소진할 때까지 같은 파티션의 뒷 메시지가 밀린다.
  */
 public enum CommandType {
 

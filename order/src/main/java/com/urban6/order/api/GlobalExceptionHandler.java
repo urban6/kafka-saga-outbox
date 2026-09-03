@@ -36,8 +36,8 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 메서드 파라미터 제약 위반(헤더·경로변수). 없으면 아래 Exception 핸들러가
-     * 프레임워크의 기본 400 을 가로채 500 으로 내보낸다.
+     * 메서드 파라미터 제약 위반(헤더·경로변수).
+     * 이 핸들러가 없으면 아래 Exception 핸들러가 프레임워크의 400 을 가로채 500 으로 만든다.
      */
     @ExceptionHandler(HandlerMethodValidationException.class)
     public ResponseEntity<ErrorResponse> handleParameterValidation(HandlerMethodValidationException e) {
@@ -58,10 +58,7 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of("MISSING_HEADER", "필수 헤더가 없습니다", List.of(e.getHeaderName())));
     }
 
-    /**
-     * 같은 Idempotency-Key 에 다른 요청 본문이 왔다. 요청 자체는 문법적으로 멀쩡하므로
-     * 400 이 아니라 422 다 — 클라이언트가 키를 재사용한 것이고, 고칠 곳은 본문이 아니라 키다.
-     */
+    /** 문법은 멀쩡하고 키를 재사용한 것이라 400 이 아니라 422 다. 고칠 곳은 본문이 아니라 키다. */
     @ExceptionHandler(IdempotencyConflictException.class)
     public ResponseEntity<ErrorResponse> handleIdempotencyConflict(IdempotencyConflictException e) {
         log.warn("idempotency key reused. {}", e.getMessage());

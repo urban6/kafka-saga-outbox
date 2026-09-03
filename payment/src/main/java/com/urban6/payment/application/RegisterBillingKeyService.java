@@ -10,11 +10,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * 카드 등록 유스케이스. PG 에서 빌링키를 발급받아 고객에 묶는다.
- *
- * @Transactional 이 없다. PG 호출이 안에 있기 때문이다(ApprovePaymentService 와 같은 이유).
- * 저장은 save() 한 줄이라 리포지토리의 트랜잭션으로 충분하다.
- *
- * 카드번호는 PG 로 보내고 끝난다. 이 서비스는 로그에도 남기지 않는다.
+ * @Transactional 이 없다 — PG 호출이 안에 있고, 저장은 save() 한 줄이라 리포지토리로 충분하다.
+ * 카드번호는 PG 로 보내고 끝이며 로그에도 남기지 않는다.
  */
 @Slf4j
 @Service

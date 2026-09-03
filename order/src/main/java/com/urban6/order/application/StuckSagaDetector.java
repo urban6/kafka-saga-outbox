@@ -24,29 +24,15 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 /**
- * 사가 정체 탐지. 탐지만 하고 아무것도 고치지 않는다.
- *
- * Kafka 재시도와 ErrorHandlingDeserializer 는 예외가 난 실패만 잡는다.
- * Debezium 이 죽어 커맨드가 발행조차 안 되거나 회신이 유실되면 아무 예외도 나지 않고,
- * 주문은 PENDING 사가는 STARTED 로 조용히 굳는다. 그걸 보는 유일한 눈이다.
- *
- * 자동 조치를 넣지 않는 이유: 사가 테이블만 봐서는 "발행 실패" 인지 "회신 지연" 인지 구분이 안 된다.
- * 지연인데 커맨드를 재발행하면 이중 결제다. 오탐이 0 인 걸 눈으로 확인한 뒤에나 붙일 수 있다.
- *
- * 락이 없다. 읽고 로그만 찍으므로 인스턴스가 여러 대면 같은 알람이 여러 번 뜰 뿐이다.
- * 조치를 붙이는 순간 FOR UPDATE SKIP LOCKED 나 ShedLock 이 필요해진다.
+ * 아무 예외도 나지 않는 실패 — Debezium 이 죽어 커맨드가 발행 안 되거나 회신이 유실된 경우 — 를
+ * 주기적으로 스캔해 ERROR 로그와 Micrometer 게이지로 알린다. 탐지만 하고 아무것도 고치지 않는다.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class StuckSagaDetector {
 
-	/**
-	 * 스캔 대상. SagaInstance.isTerminated() 의 여집합이고, 지금은 값이 하나다.
-	 *
-	 * 값이 하나여도 List 로 두는 건 이게 "진행 중인 상태 전부" 라는 의미이기 때문이다.
-	 * 나중에 상태가 늘 때 여기 추가하는 걸 잊는 것이 정확히 "사가가 멈췄는데 아무도 모르는" 버그다.
-	 */
+	// 스캔 대상 = isTerminated() 의 여집합. 상태가 늘 때 여기 추가를 잊으면 그 사가는 영영 안 보인다.
 	private static final List<SagaStatus> ACTIVE = List.of(SagaStatus.STARTED);
 
 	/** 로그 한 줄에 담을 order_no 최대 개수. 나머지는 메트릭으로 본다. */
@@ -61,16 +47,11 @@ public class StuckSagaDetector {
 	private final Map<SagaStep, AtomicLong> oldestAgeSeconds = new EnumMap<>(SagaStep.class);
 
 	/**
-	 * 게이지를 모든 단계에 대해 미리 등록한다.
-	 *
-	 * 값이 없을 때 메트릭이 아예 사라지면 알람 룰이 "데이터 없음" 으로 빠져 울리지 않는다.
-	 * "0 이다" 와 "아무 말도 없다" 는 다르다.
-	 *
-	 * Micrometer 게이지는 대상 객체를 약참조로 잡는다. AtomicLong 을 필드 맵에 붙들고 있지 않으면
-	 * GC 된 뒤 게이지가 NaN 을 뱉는다.
+	 * 모든 단계의 게이지를 0으로라도 미리 등록한다. 사라진 메트릭에는 알람을 못 건다.
 	 */
 	@PostConstruct
 	void registerGauges() {
+		// Micrometer 는 대상을 약참조로 잡는다. AtomicLong 을 필드 맵에 붙들지 않으면 GC 뒤 NaN 이 된다.
 		for (SagaStep step : SagaStep.values()) {
 			AtomicLong count = new AtomicLong();
 			AtomicLong age = new AtomicLong();
@@ -90,10 +71,7 @@ public class StuckSagaDetector {
 		}
 	}
 
-	/**
-	 * fixedDelay 다. 스캔이 늦어지면 다음 스캔도 그만큼 밀린다 —
-	 * fixedRate 로 두면 느려진 스캔이 겹쳐 쌓인다.
-	 */
+	// fixedDelay 다. fixedRate 로 두면 느려진 스캔이 겹쳐 쌓인다.
 	@Scheduled(fixedDelayString = "${saga.stuck.scan-interval}")
 	@Transactional(readOnly = true)
 	public void scan() {
@@ -130,9 +108,7 @@ public class StuckSagaDetector {
 				stuck.size() > LOG_SAMPLE ? ", ..." : "");
 	}
 
-	/**
-	 * 정체가 없는 단계에도 0 을 쓴다. 건너뛰면 해소된 뒤에도 옛 값이 남아 알람이 안 꺼진다.
-	 */
+	/** 정체가 없는 단계에도 0 을 쓴다. 건너뛰면 해소된 뒤에도 옛 값이 남아 알람이 안 꺼진다. */
 	private void publishGauges(List<SagaInstance> stuck, Instant now) {
 		Map<SagaStep, List<SagaInstance>> byStep = stuck.stream()
 				.collect(Collectors.groupingBy(SagaInstance::getCurrentStep));
@@ -145,10 +121,7 @@ public class StuckSagaDetector {
 		}
 	}
 
-	/**
-	 * 순수 함수. 시각을 주입받아 테스트에서 고정한다.
-	 * 경계는 이상(>=)이다 — 임계값 정각도 정체로 본다.
-	 */
+	/** 시각을 주입받는 순수 함수. 경계는 이상(>=)이라 임계값 정각도 정체로 본다. */
 	boolean isStuck(SagaInstance saga, Instant now) {
 		return Duration.between(saga.getStepStartedAt(), now)
 				.compareTo(properties.thresholdFor(saga.getCurrentStep())) >= 0;

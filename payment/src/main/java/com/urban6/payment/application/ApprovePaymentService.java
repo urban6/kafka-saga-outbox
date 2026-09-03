@@ -16,9 +16,7 @@ import java.util.UUID;
 
 /**
  * 결제 승인 유스케이스. HTTP(POST /api/payments)와 Kafka(payment.commands) 둘 다 여기로 온다.
- *
- * @Transactional 이 없다. 안에서 PG 를 호출하기 때문이다 — 외부 I/O 가 트랜잭션에 들어오면
- * PG 가 느린 만큼 DB 커넥션이 잡혀 있는다. DB 확정은 PaymentTransactionService 가 맡는다.
+ * @Transactional 이 없다 — 안에서 PG 를 부르므로 DB 확정은 PaymentTransactionService 가 맡는다.
  */
 @Slf4j
 @Service
@@ -72,7 +70,7 @@ public class ApprovePaymentService {
 
 	/**
 	 * 등록된 카드가 없으면 PG 를 부르지 않고 거절한다.
-	 * 예외를 던지면 재시도만 반복하다 주문이 PENDING 에 굳는다 — 거절 회신이 나가야 order 가 재고를 푼다.
+	 * 예외를 던지면 재시도만 반복하다 주문이 PENDING 에 굳는다 — 거절 회신이 나가야 재고가 풀린다.
 	 */
 	private PgChargeResult charge(String orderNo, String customerId, BigDecimal amount) {
 		BillingKey billingKey = billingKeyRepository.findById(customerId).orElse(null);
