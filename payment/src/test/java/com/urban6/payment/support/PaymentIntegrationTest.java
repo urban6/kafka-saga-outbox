@@ -9,7 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.web.client.RestClient;
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.mysql.MySQLContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
@@ -46,19 +46,20 @@ public abstract class PaymentIntegrationTest {
 
 	protected static final String PG_BASE_URL = "http://localhost:18082";
 
-	private static final MySQLContainer<?> MYSQL =
-			new MySQLContainer<>(DockerImageName.parse("mysql:8.0"))
-					.withDatabaseName("payment_db")
-					// MySQL 8 기본 인증이 caching_sha2_password 라 이게 없으면
-					// "RSA public key is not available client side" 로 연결이 끊긴다.
-					.withUrlParam("allowPublicKeyRetrieval", "true")
-					.withUrlParam("useSSL", "false")
-					// DDL 을 복사하지 않는다. 운영과 같은 파일을 그대로 마운트한다.
-					.withCopyFileToContainer(
-							MountableFile.forHostPath("../docker/mysql/init/03-payment.sql"),
-							"/docker-entrypoint-initdb.d/03-payment.sql");
+	// org.testcontainers.containers.MySQLContainer 는 2.x 에서 deprecated 다(패키지 이동).
+	// 체이닝하지 않고 문장을 나눈 건 새 클래스가 제네릭이 아니라 반환 타입이 상위로 좁혀지기 때문이다.
+	private static final MySQLContainer MYSQL = new MySQLContainer(DockerImageName.parse("mysql:8.0"));
 
 	static {
+		MYSQL.withDatabaseName("payment_db");
+		// MySQL 8 기본 인증이 caching_sha2_password 라 이게 없으면
+		// "RSA public key is not available client side" 로 연결이 끊긴다.
+		MYSQL.withUrlParam("allowPublicKeyRetrieval", "true");
+		MYSQL.withUrlParam("useSSL", "false");
+		// DDL 을 복사하지 않는다. 운영과 같은 파일을 그대로 마운트한다.
+		MYSQL.withCopyFileToContainer(
+				MountableFile.forHostPath("../docker/mysql/init/03-payment.sql"),
+				"/docker-entrypoint-initdb.d/03-payment.sql");
 		MYSQL.start();
 	}
 
