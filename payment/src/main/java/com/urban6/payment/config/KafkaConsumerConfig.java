@@ -1,6 +1,7 @@
 package com.urban6.payment.config;
 
 import com.urban6.payment.infra.messaging.InboundEnvelope;
+import com.urban6.payment.infra.messaging.PaymentCommandListener;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
@@ -27,7 +28,6 @@ import tools.jackson.databind.json.JsonMapper;
 public class KafkaConsumerConfig {
 
 	/** @KafkaListener(containerFactory = ...) 에서 문자열을 직접 쓰지 않으려고 상수로 둔다. */
-	public static final String CONTAINER_FACTORY = "paymentCommandListenerContainerFactory";
 
 	/**
 	 * ErrorHandlingDeserializer 로 감싼다. 깨진 JSON 은 값이 null 이 되고 예외가 헤더에 실려
@@ -51,7 +51,7 @@ public class KafkaConsumerConfig {
 	 * 파티션이 3개라 concurrency 도 3. 에러 핸들러는 2초 간격 5회 재시도 뒤 DLT 로 넘긴다 —
 	 * RETRYABLE 이 실제 경로라 예산을 늘렸다. 역직렬화 예외는 재시도 없이 곧장 DLT 로 간다.
 	 */
-	@Bean(CONTAINER_FACTORY)
+	@Bean(PaymentCommandListener.CONTAINER_FACTORY)
 	public ConcurrentKafkaListenerContainerFactory<String, InboundEnvelope> paymentCommandListenerContainerFactory(
 			ConsumerFactory<String, InboundEnvelope> paymentCommandConsumerFactory,
 			DeadLetterPublishingRecoverer deadLetterRecoverer) {

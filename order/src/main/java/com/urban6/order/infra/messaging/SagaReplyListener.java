@@ -1,7 +1,6 @@
 package com.urban6.order.infra.messaging;
 
 import com.urban6.order.application.OrderSagaOrchestrator;
-import com.urban6.order.config.KafkaConsumerConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -16,11 +15,14 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class SagaReplyListener {
 
+	/** 컨테이너 팩토리 빈 이름. 여기 선언해야 config 와 messaging 이 서로를 참조하지 않는다. */
+	public static final String CONTAINER_FACTORY = "sagaReplyListenerContainerFactory";
+
 	private final OrderSagaOrchestrator orchestrator;
 
 	@KafkaListener(
 			topics = Topics.ORDER_SAGA_REPLIES,
-			containerFactory = KafkaConsumerConfig.CONTAINER_FACTORY)
+			containerFactory = CONTAINER_FACTORY)
 	public void onReply(InboundEnvelope envelope) {
 		EventType.fromWire(envelope.eventType())
 				.filter(EventType::isSagaReply)

@@ -1,5 +1,6 @@
 package com.urban6.payment.api;
 
+import com.urban6.payment.api.dto.ErrorResponse;
 import com.urban6.payment.infra.client.exception.PgCallException;
 import com.urban6.payment.infra.client.exception.PgRetryableException;
 import lombok.extern.slf4j.Slf4j;
@@ -9,7 +10,6 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.time.Instant;
 import java.util.List;
 
 /**
@@ -20,13 +20,6 @@ import java.util.List;
 @Slf4j
 @RestControllerAdvice(basePackageClasses = PaymentController.class)
 public class GlobalExceptionHandler {
-
-	public record ErrorResponse(String code, String message, List<String> details, Instant timestamp) {
-
-		static ErrorResponse of(String code, String message, List<String> details) {
-			return new ErrorResponse(code, message, details, Instant.now());
-		}
-	}
 
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException e) {

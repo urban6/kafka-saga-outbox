@@ -4,6 +4,7 @@ import com.urban6.order.api.dto.PlaceOrderRequest;
 import com.urban6.order.api.dto.PlaceOrderResponse;
 import com.urban6.order.application.exception.IdempotencyConflictException;
 import com.urban6.order.domain.Order;
+import com.urban6.order.domain.OrderNoGenerator;
 import com.urban6.order.domain.Product;
 import com.urban6.order.domain.SagaInstance;
 import com.urban6.order.domain.exception.OutOfStockException;
@@ -42,7 +43,6 @@ public class PlaceOrderService {
     private final ProductRepository productRepository;
     private final SagaInstanceRepository sagaInstanceRepository;
     private final OutboxWriter outboxWriter;
-    private final OrderNoGenerator orderNoGenerator;
     private final ApiIdempotencyStore apiIdempotencyStore;
     private final ObjectMapper objectMapper;
 
@@ -52,7 +52,8 @@ public class PlaceOrderService {
      */
     @Transactional
     public PlaceOrderResponse place(String idempotencyKey, PlaceOrderRequest request) {
-        String orderNo = orderNoGenerator.generate();
+        // 랜덤 접미사라 채번 없이 만들 수 있고, 그래서 멱등 선점보다 먼저 만들어 둘 수 있다.
+        String orderNo = OrderNoGenerator.generate();
         if (!apiIdempotencyStore.claim(idempotencyKey, requestHash(request), orderNo)) {
             return replay(idempotencyKey, request);
         }

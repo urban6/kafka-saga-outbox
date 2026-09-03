@@ -1,6 +1,7 @@
 package com.urban6.order.config;
 
 import com.urban6.order.infra.messaging.InboundEnvelope;
+import com.urban6.order.infra.messaging.SagaReplyListener;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
@@ -24,7 +25,6 @@ import tools.jackson.databind.json.JsonMapper;
 @Configuration
 public class KafkaConsumerConfig {
 
-	public static final String CONTAINER_FACTORY = "sagaReplyListenerContainerFactory";
 
 	/** ErrorHandlingDeserializer 로 감싼다. 안 감싸면 깨진 메시지 하나가 파티션을 통째로 멈춘다. */
 	@Bean
@@ -46,7 +46,7 @@ public class KafkaConsumerConfig {
 	 * recoverer 를 안 주면 기본 동작이 로그 한 줄이라 메시지가 본문째 사라진다.
 	 * 역직렬화 예외는 재시도 대상이 아니라 첫 실패에서 곧장 DLT 로 간다.
 	 */
-	@Bean(CONTAINER_FACTORY)
+	@Bean(SagaReplyListener.CONTAINER_FACTORY)
 	public ConcurrentKafkaListenerContainerFactory<String, InboundEnvelope> sagaReplyListenerContainerFactory(
 			ConsumerFactory<String, InboundEnvelope> sagaReplyConsumerFactory,
 			DeadLetterPublishingRecoverer deadLetterRecoverer) {

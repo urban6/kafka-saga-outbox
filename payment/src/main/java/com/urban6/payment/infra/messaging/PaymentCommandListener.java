@@ -1,7 +1,6 @@
 package com.urban6.payment.infra.messaging;
 
 import com.urban6.payment.application.ApprovePaymentService;
-import com.urban6.payment.config.KafkaConsumerConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -14,12 +13,15 @@ import tools.jackson.databind.json.JsonMapper;
 @RequiredArgsConstructor
 public class PaymentCommandListener {
 
+	/** 컨테이너 팩토리 빈 이름. 여기 선언해야 config 와 messaging 이 서로를 참조하지 않는다. */
+	public static final String CONTAINER_FACTORY = "paymentCommandListenerContainerFactory";
+
 	private final ApprovePaymentService approvePaymentService;
 	private final JsonMapper jsonMapper;
 
 	@KafkaListener(
 			topics = Topics.PAYMENT_COMMANDS,
-			containerFactory = KafkaConsumerConfig.CONTAINER_FACTORY)
+			containerFactory = CONTAINER_FACTORY)
 	public void onCommand(InboundEnvelope envelope) {
 		CommandType.fromWire(envelope.eventType()).ifPresentOrElse(
 				commandType -> handle(commandType, envelope),

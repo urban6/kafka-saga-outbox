@@ -1,5 +1,6 @@
 package com.urban6.order.api;
 
+import com.urban6.order.api.dto.ErrorResponse;
 import com.urban6.order.application.exception.IdempotencyConflictException;
 import com.urban6.order.domain.exception.OutOfStockException;
 import lombok.extern.slf4j.Slf4j;
@@ -11,19 +12,11 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
-import java.time.Instant;
 import java.util.List;
 
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-
-    public record ErrorResponse(String code, String message, List<String> details, Instant timestamp) {
-
-        static ErrorResponse of(String code, String message, List<String> details) {
-            return new ErrorResponse(code, message, details, Instant.now());
-        }
-    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException e) {
