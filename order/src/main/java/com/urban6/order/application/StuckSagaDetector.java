@@ -9,8 +9,7 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -37,11 +36,10 @@ import java.util.stream.Collectors;
  * 락이 없다. 읽고 로그만 찍으므로 인스턴스가 여러 대면 같은 알람이 여러 번 뜰 뿐이다.
  * 조치를 붙이는 순간 FOR UPDATE SKIP LOCKED 나 ShedLock 이 필요해진다.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class StuckSagaDetector {
-
-	private static final Logger log = LoggerFactory.getLogger(StuckSagaDetector.class);
 
 	/**
 	 * 스캔 대상. SagaInstance.isTerminated() 의 여집합이고, 지금은 값이 하나다.

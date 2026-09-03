@@ -8,8 +8,7 @@ import com.urban6.payment.infra.client.PgRetryableException;
 import com.urban6.payment.infra.persistence.BillingKeyRepository;
 import com.urban6.payment.infra.persistence.PaymentRepository;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -21,11 +20,10 @@ import java.util.UUID;
  * @Transactional 이 없다. 안에서 PG 를 호출하기 때문이다 — 외부 I/O 가 트랜잭션에 들어오면
  * PG 가 느린 만큼 DB 커넥션이 잡혀 있는다. DB 확정은 PaymentTransactionService 가 맡는다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ApprovePaymentService {
-
-	private static final Logger log = LoggerFactory.getLogger(ApprovePaymentService.class);
 
 	/** PG 를 부르기 전에 우리가 내는 거절 코드. Toss 코드와 섞여 failure_code 에 남는다. */
 	static final String NO_BILLING_KEY = "NO_BILLING_KEY";

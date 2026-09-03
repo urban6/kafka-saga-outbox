@@ -1,8 +1,7 @@
 package com.urban6.payment.infra.client;
 
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
@@ -21,11 +20,11 @@ import java.math.BigDecimal;
  * 트랜잭션 밖에서 호출한다 — 외부 I/O 가 트랜잭션 안에 들어오면 PG 가 느려질 때
  * DB 커넥션이 그만큼 잡혀 있는다.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class PgClient {
 
-	private static final Logger log = LoggerFactory.getLogger(PgClient.class);
 	private static final String IDEMPOTENCY_KEY = "Idempotency-Key";
 
 	/** Toss 빌링 청구 본문. orderName 은 필수인데 payment 는 상품명을 모르므로 주문번호를 넣는다. */

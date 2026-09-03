@@ -1,8 +1,7 @@
 package com.urban6.payment.mockpg;
 
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
@@ -26,11 +25,10 @@ import java.util.concurrent.ThreadLocalRandom;
  * 결제의 시작이자 끝이다 — 그 호출에서 돈이 빠진다. 그래서 IN_PROGRESS/EXPIRED 에
  * 도달하는 경로가 없다.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class MockPgEngine {
-
-	private static final Logger log = LoggerFactory.getLogger(MockPgEngine.class);
 
 	/** Toss 결제 상태. 빌링에선 DONE 아니면 ABORTED 다. 나머지는 계약 호환용으로만 남긴다. */
 	public enum PgStatus {

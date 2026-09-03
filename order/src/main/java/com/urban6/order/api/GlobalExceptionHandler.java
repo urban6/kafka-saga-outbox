@@ -2,8 +2,7 @@ package com.urban6.order.api;
 
 import com.urban6.order.application.IdempotencyConflictException;
 import com.urban6.order.domain.OutOfStockException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -15,10 +14,9 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import java.time.Instant;
 import java.util.List;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-
-    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     public record ErrorResponse(String code, String message, List<String> details, Instant timestamp) {
 

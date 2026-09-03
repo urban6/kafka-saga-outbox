@@ -6,8 +6,7 @@ import com.urban6.payment.infra.client.PgChargeResult;
 import com.urban6.payment.infra.client.PgClient;
 import com.urban6.payment.infra.persistence.PaymentRepository;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -26,11 +25,10 @@ import java.util.List;
  * DB 확정은 PaymentTransactionService.settle 이 건별 트랜잭션으로 맡는다 —
  * 한 트랜잭션으로 묶으면 50건 중 마지막이 실패할 때 앞의 49건 확정이 함께 날아간다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class InDoubtRecoveryService {
-
-	private static final Logger log = LoggerFactory.getLogger(InDoubtRecoveryService.class);
 
 	/** PG 에 기록이 없을 때 남기는 코드. 미체결이 확인됐다는 뜻이다. */
 	static final String PG_NO_RECORD = "PG_NO_RECORD";

@@ -5,8 +5,7 @@ import com.urban6.order.infra.messaging.IdempotencyGuard;
 import com.urban6.order.infra.messaging.OutboxRepository;
 import com.urban6.order.infra.persistence.ApiIdempotencyStore;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -22,11 +21,10 @@ import java.util.function.IntUnaryOperator;
  * 실패해도 다음 회차가 같은 일을 한다. 그래서 예외를 특별히 다루지 않는다 —
  * 정리 배치는 못 지우는 것보다 남의 트랜잭션을 막는 것이 훨씬 나쁘다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RetentionCleanupService {
-
-	private static final Logger log = LoggerFactory.getLogger(RetentionCleanupService.class);
 
 	private final OutboxRepository outboxRepository;
 	private final IdempotencyGuard idempotencyGuard;

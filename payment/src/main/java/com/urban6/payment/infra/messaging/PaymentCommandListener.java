@@ -3,18 +3,16 @@ package com.urban6.payment.infra.messaging;
 import com.urban6.payment.application.ApprovePaymentService;
 import com.urban6.payment.config.KafkaConsumerConfig;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 import tools.jackson.databind.json.JsonMapper;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class PaymentCommandListener {
-
-	private static final Logger log = LoggerFactory.getLogger(PaymentCommandListener.class);
 
 	private final ApprovePaymentService approvePaymentService;
 	private final JsonMapper jsonMapper;

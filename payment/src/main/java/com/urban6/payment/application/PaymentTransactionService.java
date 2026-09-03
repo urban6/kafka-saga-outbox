@@ -11,8 +11,7 @@ import com.urban6.payment.infra.messaging.OutboxWriter;
 import com.urban6.payment.infra.messaging.PaymentReplyPayload;
 import com.urban6.payment.infra.persistence.PaymentRepository;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,11 +30,10 @@ import java.util.UUID;
  * 트랜잭션 하나에 멱등 선점 · 결제 확정 · 회신 적재 가 함께 들어간다. 하나라도 밖으로 빼면
  * "결제는 됐는데 회신이 없다" 또는 "선점만 남아 영영 재처리되지 않는다" 가 생긴다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentTransactionService {
-
-	private static final Logger log = LoggerFactory.getLogger(PaymentTransactionService.class);
 
 	private final PaymentRepository paymentRepository;
 	private final OutboxWriter outboxWriter;

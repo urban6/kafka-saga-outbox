@@ -2,8 +2,7 @@ package com.urban6.payment.api;
 
 import com.urban6.payment.infra.client.PgCallException;
 import com.urban6.payment.infra.client.PgRetryableException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -20,10 +19,9 @@ import java.util.List;
  * mockpg 컨트롤러까지 잡아 Toss 형식이어야 할 PG 응답을 우리 형식으로 덮어쓴다.
  * PG 는 외부 시스템이라 우리 에러 계약을 따르면 안 된다.
  */
+@Slf4j
 @RestControllerAdvice(basePackageClasses = PaymentController.class)
 public class GlobalExceptionHandler {
-
-	private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
 	public record ErrorResponse(String code, String message, List<String> details, Instant timestamp) {
 

@@ -15,8 +15,7 @@ import com.urban6.order.infra.persistence.OrderRepository;
 import com.urban6.order.infra.persistence.ProductRepository;
 import com.urban6.order.infra.persistence.SagaInstanceRepository;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,11 +30,10 @@ import java.util.Map;
  * 재시작하면 종료된 사가에도 회신이 도착하며, 늦게 온 회신이 이미 지나간 단계를 가리키기도 한다.
  * 방어선을 셋 두는 이유는 각각이 막는 상황이 다르기 때문이다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderSagaOrchestrator {
-
-	private static final Logger log = LoggerFactory.getLogger(OrderSagaOrchestrator.class);
 
 	/**
 	 * 회신을 받았을 때 무엇을 할지. decide 의 반환값이자 이 사가가 가질 수 있는 결정의 전부다.

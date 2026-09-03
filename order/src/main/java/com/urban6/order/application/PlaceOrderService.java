@@ -15,8 +15,7 @@ import com.urban6.order.infra.persistence.OrderRepository;
 import com.urban6.order.infra.persistence.ProductRepository;
 import com.urban6.order.infra.persistence.SagaInstanceRepository;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
@@ -33,11 +32,10 @@ import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PlaceOrderService {
-
-    private static final Logger log = LoggerFactory.getLogger(PlaceOrderService.class);
 
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;

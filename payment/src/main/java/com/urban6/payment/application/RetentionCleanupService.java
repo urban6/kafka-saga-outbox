@@ -4,8 +4,7 @@ import com.urban6.payment.config.RetentionProperties;
 import com.urban6.payment.infra.messaging.IdempotencyGuard;
 import com.urban6.payment.infra.messaging.OutboxRepository;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -20,11 +19,10 @@ import java.util.function.IntUnaryOperator;
  *
  * payment 테이블은 지우지 않는다. 결제 이력은 운영 데이터가 아니라 기록이다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RetentionCleanupService {
-
-	private static final Logger log = LoggerFactory.getLogger(RetentionCleanupService.class);
 
 	private final OutboxRepository outboxRepository;
 	private final IdempotencyGuard idempotencyGuard;

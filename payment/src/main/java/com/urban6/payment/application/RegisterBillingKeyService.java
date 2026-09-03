@@ -5,8 +5,7 @@ import com.urban6.payment.infra.client.PgClient;
 import com.urban6.payment.infra.client.PgClient.IssuedBillingKey;
 import com.urban6.payment.infra.persistence.BillingKeyRepository;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
@@ -17,11 +16,10 @@ import org.springframework.stereotype.Service;
  *
  * 카드번호는 PG 로 보내고 끝난다. 이 서비스는 로그에도 남기지 않는다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RegisterBillingKeyService {
-
-	private static final Logger log = LoggerFactory.getLogger(RegisterBillingKeyService.class);
 
 	private final PgClient pgClient;
 	private final BillingKeyRepository billingKeyRepository;
