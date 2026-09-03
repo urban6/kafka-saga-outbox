@@ -57,6 +57,16 @@ mockpg:
   delay-rate: 0.0     # 아래 delay 를 넣을 비율
   delay: 0s           # pg.read-timeout(3s) 보다 크면 클라이언트는 타임아웃, PG 는 승인 = in-doubt
 
+# in-doubt 복구. "돈이 빠졌는지 모르는" 결제를 조회 API 로 해소한다.
+payment:
+  in-doubt:
+    scan-interval: 30s
+    # 갓 만들어진 행은 건너뛴다. PG 응답이 조금 늦었을 뿐일 수 있다.
+    grace: 30s
+    scan-limit: 50
+    # 이만큼 조회해도 안 풀리면 사람이 봐야 한다. 돈이 걸린 미결이다.
+    escalate-after: 5m
+
 logging:
   level:
     com.urban6: DEBUG

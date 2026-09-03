@@ -56,7 +56,7 @@ public class KafkaConsumerConfig {
 	/**
 	 * 파티션이 3개라 concurrency 도 3. 더 올려도 컨슈머 하나는 놀게 된다.
 	 * <p>
-	 * {@link DefaultErrorHandler} 는 1초 간격 3회 재시도 후 로그를 남기고 넘어간다.
+	 * {@link DefaultErrorHandler} 는 2초 간격 5회 재시도 후 로그를 남기고 넘어간다.
 	 * 역직렬화 예외는 재시도 대상에서 기본 제외된다 — 몇 번을 다시 읽어도 결과가 같기 때문이다.
 	 */
 	@Bean(CONTAINER_FACTORY)
@@ -66,7 +66,10 @@ public class KafkaConsumerConfig {
 		var factory = new ConcurrentKafkaListenerContainerFactory<String, InboundEnvelope>();
 		factory.setConsumerFactory(paymentCommandConsumerFactory);
 		factory.setConcurrency(3);
-		factory.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(1_000L, 3)));
+		// RETRYABLE 이 실제 경로가 됐다. 1초x3(총 4초)은 PG 가 잠깐만 흔들려도 커맨드를 버린다.
+		// 2초x5(총 10초)로 짧은 blip 은 흡수하고, 그 이상은 Stuck 탐지에 맡긴다 —
+		// 여기서 더 늘리면 그 파티션의 뒷 주문이 그만큼 밀린다.
+		factory.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(2_000L, 5)));
 		return factory;
 	}
 }

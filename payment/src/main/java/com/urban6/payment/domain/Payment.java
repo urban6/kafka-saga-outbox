@@ -106,6 +106,24 @@ public class Payment implements Persistable<String> {
 		return payment;
 	}
 
+	/**
+	 * <b>결과를 모르는 결제.</b> 돈이 빠졌는지 확인되지 않았다.
+	 * <p>
+	 * 승인으로 저장하면 없는 결제의 키를 들고 있게 되고, 거절로 저장하면 이미 받은 돈에
+	 * 보상이 돈다. 둘 다 틀릴 수 있으므로 <b>아직 답하지 않는다</b> 는 상태를 남긴다.
+	 * 복구 배치가 조회로 해소할 때까지 이 행은 미완결이다.
+	 * <p>
+	 * {@code failureCode} 에는 거절 근거가 아니라 <b>왜 모르게 됐는지</b>가 들어간다
+	 * ({@code PG_TIMEOUT} 등). 사후에 "무엇이 우리를 눈멀게 했나" 를 세려면 이게 필요하다.
+	 */
+	public static Payment inDoubt(String paymentId, String orderNo, BigDecimal amount,
+			String failureCode, String failureReason) {
+		Payment payment = new Payment(paymentId, orderNo, amount, PaymentStatus.IN_PROGRESS);
+		payment.failureCode = failureCode;
+		payment.failureReason = failureReason;
+		return payment;
+	}
+
 	@Override
 	public String getId() {
 		return paymentId;

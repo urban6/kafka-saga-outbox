@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
@@ -80,13 +81,23 @@ public class PgClient {
 	 * <p>
 	 * 빌링키는 URL 에, 고객 식별자는 본문에 간다. PG 는 둘이 같은 고객의 것인지 대조한다 —
 	 * 그래서 다른 고객의 키로는 청구가 안 된다.
+	 * <p>
+	 * <b>타임아웃은 거절이 아니다.</b> 요청이 안 갔을 수도, 갔는데 응답만 유실됐을 수도 있다.
+	 * 후자면 돈은 이미 빠졌다. 소켓이 끊긴 것과 결제가 실패한 것은 다른 사건이라
+	 * {@code IN_DOUBT} 로 올려보내고 조회로 해소한다.
 	 */
 	public PgChargeResult charge(String orderNo, String billingKey, String customerId, BigDecimal amount) {
-		return restClient.post()
-				.uri("/v1/billing/{billingKey}", billingKey)
-				.header(IDEMPOTENCY_KEY, orderNo)
-				.body(new ChargeRequest(customerId, orderNo, orderNo, amount))
-				.exchange((request, response) -> map(orderNo, response));
+		try {
+			return restClient.post()
+					.uri("/v1/billing/{billingKey}", billingKey)
+					.header(IDEMPOTENCY_KEY, orderNo)
+					.body(new ChargeRequest(customerId, orderNo, orderNo, amount))
+					.exchange((request, response) -> map(orderNo, response));
+		} catch (ResourceAccessException e) {
+			// 연결 실패·read timeout·소켓 끊김이 전부 여기로 온다. 응답 자체가 없었다는 뜻이다.
+			log.warn("pg charge did not answer. orderNo={} cause={}", orderNo, e.getMessage());
+			return PgChargeResult.inDoubt("PG_TIMEOUT", "PG 응답을 받지 못했습니다. orderNo=" + orderNo);
+		}
 	}
 
 	/**
@@ -113,7 +124,7 @@ public class PgClient {
 			//
 			// 이 응답에는 paymentKey 가 없고, 빌링은 결제창과 달리 우리가 보낸 키도 없다.
 			// 실제 결제를 성사시킨 이전 시도의 키는 PG 만 안다 — 조회로 가져온다.
-			case "ALREADY_PROCESSED_PAYMENT" -> lookup(orderNo);
+			case "ALREADY_PROCESSED_PAYMENT" -> reconcile(orderNo);
 
 			case "REJECT_CARD_COMPANY" -> PgChargeResult.rejected(code, message);
 
@@ -121,44 +132,71 @@ public class PgClient {
 			// (Mock 은 인메모리라 payment 앱을 재시작하면 이 경로가 실제로 나온다. 재등록으로 복구)
 			case "NOT_FOUND_BILLING_KEY" -> PgChargeResult.rejected(code, message);
 
+			// 같은 멱등키의 앞선 요청이 아직 처리 중이다. 그 요청이 끝나면 결과가 생기므로
+			// 잠시 뒤 다시 부르면 승인이든 ALREADY_PROCESSED 든 답이 나온다.
+			case "IDEMPOTENT_REQUEST_PROCESSING" -> PgChargeResult.retryable(code, message);
+
+			// PG 가 "처리하지 못했다" 고 명시한 실패다. 돈이 안 빠진 게 PG 의 주장이므로 재청구가 안전하다.
+			case "FAILED_PAYMENT_INTERNAL_SYSTEM_PROCESSING", "PROVIDER_ERROR" ->
+					PgChargeResult.retryable(code, message);
+
 			default -> {
-				// 아직 재시도 판정을 만들지 않았다. 승인되지 않았다는 것만 확실하므로 거절로 본다.
-				log.warn("unmapped pg error code. orderNo={} code={}", orderNo, code);
-				yield PgChargeResult.rejected(code, message);
+				// 모르는 코드를 거절로 떨어뜨리면 승인된 결제에 보상이 돌 수 있다.
+				// 그렇다고 재청구하면 이중 결제다 — 돈이 빠졌는지 모르기 때문이다.
+				// 모를 때 안전한 행동은 하나뿐이다: 조회로 확인한다.
+				log.warn("unmapped pg error code. orderNo={} httpStatus={} code={}",
+						orderNo, status.value(), code);
+				yield PgChargeResult.inDoubt(code, message);
 			}
 		};
 	}
 
 	/**
-	 * 조회 API 로 PG 가 실제로 들고 있는 결제를 확인한다.
+	 * 조회 API 로 PG 가 실제로 들고 있는 결제를 확인한다. <b>대사(reconciliation)의 유일한 경로다.</b>
 	 * <p>
-	 * 지금은 "이미 처리된 결제" 응답에서 진짜 {@code paymentKey} 를 얻으려고 쓴다.
-	 * 나중에 타임아웃·5xx 로 결과를 모를 때(in-doubt) 무작정 재청구하지 않고 여기부터 보게 된다 —
-	 * 같은 경로를 재사용하면 된다.
+	 * 두 곳에서 쓴다 — {@code ALREADY_PROCESSED_PAYMENT} 응답에서 진짜 {@code paymentKey} 를 얻을 때,
+	 * 그리고 {@code IN_DOUBT} 로 남은 결제를 나중에 해소할 때. 같은 질문이라 같은 코드다.
 	 * <p>
-	 * 조회마저 실패하면 <b>던진다.</b> 돈은 빠졌는데 키를 모르는 상태라 승인으로 저장할 수도
-	 * (틀린 키가 남는다) 거절할 수도(보상이 돈다) 없다. 예외로 나가면 Kafka 가 재시도한다.
+	 * <b>조회가 실패해도 던지지 않는다.</b> 예전엔 던졌다 — 승인으로도 거절로도 저장할 수 없어서였다.
+	 * 이제 {@code IN_DOUBT} 라는 제3의 답이 있으므로 그대로 올려보내고 복구 배치가 다시 묻는다.
+	 * Kafka 재시도로 같은 호출을 계속 두드리는 것보다, 상태를 남기고 물러나는 쪽이 낫다.
 	 */
-	private PgChargeResult lookup(String orderNo) {
-		return restClient.get()
-				.uri("/v1/payments/orders/{orderId}", orderNo)
-				.exchange((request, response) -> {
-					HttpStatusCode status = response.getStatusCode();
-					if (!status.is2xxSuccessful()) {
-						log.warn("pg lookup failed after ALREADY_PROCESSED_PAYMENT. orderNo={} httpStatus={}",
-								orderNo, status.value());
-						throw new PgCallException(status.value(), "LOOKUP_FAILED",
-								"이미 처리된 결제의 조회에 실패했습니다. orderNo=" + orderNo);
-					}
+	public PgChargeResult reconcile(String orderNo) {
+		try {
+			return restClient.get()
+					.uri("/v1/payments/orders/{orderId}", orderNo)
+					.exchange((request, response) -> {
+						HttpStatusCode status = response.getStatusCode();
+						if (status.is2xxSuccessful()) {
+							PgPaymentResponse body = response.bodyTo(PgPaymentResponse.class);
+							log.info("pg lookup. orderNo={} pgStatus={} paymentKey={}",
+									orderNo, body.status(), body.paymentKey());
+							return switch (body.status()) {
+								case "DONE" -> PgChargeResult.approved(body.paymentKey());
+								case "ABORTED", "CANCELED", "EXPIRED" ->
+										PgChargeResult.rejected("PG_" + body.status(),
+												"PG 에서 종료된 결제 입니다. pgStatus=" + body.status());
+								// READY/IN_PROGRESS = PG 도 아직 진행 중이다. 다음 배치에서 다시 본다.
+								default -> PgChargeResult.inDoubt("PG_" + body.status(),
+										"PG 가 아직 처리 중입니다. pgStatus=" + body.status());
+							};
+						}
 
-					PgPaymentResponse body = response.bodyTo(PgPaymentResponse.class);
-					log.info("pg lookup. orderNo={} pgStatus={} paymentKey={}",
-							orderNo, body.status(), body.paymentKey());
+						PgErrorResponse error = response.bodyTo(PgErrorResponse.class);
+						String code = error == null ? "UNKNOWN_ERROR" : error.code();
+						if ("NOT_FOUND_PAYMENT".equals(code)) {
+							// PG 에 기록이 없다 = 청구가 아예 안 닿았다. 돈이 안 빠진 게 확인됐으므로 재청구가 안전하다.
+							log.info("pg has no payment. orderNo={} -> retryable", orderNo);
+							return PgChargeResult.retryable(code, "PG 에 결제 기록이 없습니다.");
+						}
 
-					return "DONE".equals(body.status())
-							? PgChargeResult.approved(body.paymentKey())
-							: PgChargeResult.rejected("ALREADY_PROCESSED_PAYMENT",
-									"이미 종료된 결제 입니다. pgStatus=" + body.status());
-				});
+						log.warn("pg lookup failed. orderNo={} httpStatus={} code={}",
+								orderNo, status.value(), code);
+						return PgChargeResult.inDoubt(code, "결제 조회에 실패했습니다. orderNo=" + orderNo);
+					});
+		} catch (ResourceAccessException e) {
+			log.warn("pg lookup did not answer. orderNo={} cause={}", orderNo, e.getMessage());
+			return PgChargeResult.inDoubt("PG_TIMEOUT", "결제 조회 응답을 받지 못했습니다. orderNo=" + orderNo);
+		}
 	}
 }

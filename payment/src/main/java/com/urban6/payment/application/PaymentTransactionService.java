@@ -1,6 +1,7 @@
 package com.urban6.payment.application;
 
 import com.urban6.payment.domain.Payment;
+import com.urban6.payment.domain.PaymentStatus;
 import com.urban6.payment.infra.client.PgChargeResult;
 import com.urban6.payment.infra.messaging.EventEnvelope;
 import com.urban6.payment.infra.messaging.EventType;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -56,9 +58,19 @@ public class PaymentTransactionService {
 			return null;
 		}
 
-		Payment payment = result.isApproved()
-				? Payment.approved(paymentId, orderNo, amount, result.paymentKey())
-				: Payment.rejected(paymentId, orderNo, amount, result.failureCode(), result.failureMessage());
+		Payment payment = switch (result.outcome()) {
+			case APPROVED -> Payment.approved(paymentId, orderNo, amount, result.paymentKey());
+			case REJECTED -> Payment.rejected(paymentId, orderNo, amount,
+					result.failureCode(), result.failureMessage());
+			// 돈이 빠졌는지 모른다. 답을 미루고 행만 남긴다 — 복구 배치가 조회로 해소한다.
+			case IN_DOUBT -> Payment.inDoubt(paymentId, orderNo, amount,
+					result.failureCode(), result.failureMessage());
+			// 여기 오면 안 된다. 재시도는 DB 에 아무것도 쓰지 않고 ApprovePaymentService 가 되돌린다 —
+			// 행을 남기면 uk_order_no 때문에 다음 재시도가 영영 막힌다.
+			case RETRYABLE -> throw new IllegalStateException(
+					"retryable result must not be recorded. orderNo=" + orderNo
+							+ " code=" + result.failureCode());
+		};
 
 		// uk_order_no 위반은 잡지 않고 던진다. 제약 위반이 난 트랜잭션은 이어서 쓸 수 없고,
 		// 롤백시키면 멱등 선점도 함께 풀려 Kafka 재시도가 정상 경로로 흡수한다.
@@ -82,6 +94,44 @@ public class PaymentTransactionService {
 		return existing;
 	}
 
+	/**
+	 * 결과를 모르던 결제를 확정한다. <b>복구 배치 전용.</b>
+	 * <p>
+	 * {@link #record} 와 다른 점은 둘이다 — 새 행을 만드는 게 아니라 있는 행을 옮기고,
+	 * {@code eventId} 없이도 회신을 낸다. 애초에 회신을 미뤄둔 결제라 지금 내지 않으면 아무도 안 낸다.
+	 *
+	 * @return 이 호출이 확정했으면 {@code true}. 이미 누가 확정했으면 {@code false}
+	 */
+	@Transactional
+	public boolean settle(Payment payment, PgChargeResult result) {
+		String orderNo = payment.getOrderNo();
+		Instant now = Instant.now();
+
+		int moved = result.isApproved()
+				? paymentRepository.settleApproved(payment.getPaymentId(), result.paymentKey(), now)
+				: paymentRepository.settleRejected(payment.getPaymentId(),
+						result.failureCode(), result.failureMessage(), now);
+
+		if (moved == 0) {
+			// 조건부 UPDATE 가 막았다. 회신도 이미 그쪽이 냈으므로 여기서 또 내면 중복이다.
+			log.info("payment already settled elsewhere. orderNo={}", orderNo);
+			return false;
+		}
+
+		// 회신은 엔티티가 아니라 PG 응답으로 만든다. 벌크 UPDATE 는 1차 캐시를 우회하므로
+		// 지금 payment 객체는 여전히 IN_PROGRESS 인 옛 값이다.
+		EventEnvelope<PaymentReplyPayload> envelope = result.isApproved()
+				? EventEnvelope.of(EventType.PAYMENT_APPROVED, orderNo,
+						PaymentReplyPayload.approved(orderNo, result.paymentKey()))
+				: EventEnvelope.of(EventType.PAYMENT_REJECTED, orderNo,
+						PaymentReplyPayload.rejected(orderNo, result.failureCode(), result.failureMessage()));
+
+		outboxWriter.append("Payment", envelope);
+		log.info("in-doubt settled. orderNo={} outcome={} eventType={}",
+				orderNo, result.outcome(), envelope.eventType());
+		return true;
+	}
+
 	/** {@code eventId} 가 없으면(HTTP 진입) 멱등 판정 자체가 필요 없다. */
 	private boolean claim(UUID eventId, String orderNo) {
 		if (eventId == null) {
@@ -99,6 +149,15 @@ public class PaymentTransactionService {
 			return;
 		}
 		String orderNo = payment.getOrderNo();
+
+		if (payment.getStatus() == PaymentStatus.IN_PROGRESS) {
+			// 결과를 모르는 동안은 회신하지 않는다. 승인 회신은 재고를 확정하고 거절 회신은 재고를 푸는데,
+			// 어느 쪽도 틀리면 되돌릴 수 없다. 침묵하면 order 는 PENDING 에 머물고
+			// 임계값을 넘는 순간 Stuck 탐지에 걸린다 — 조용히 사라지지 않는다.
+			log.info("payment in doubt, reply deferred. orderNo={} failureCode={}",
+					orderNo, payment.getFailureCode());
+			return;
+		}
 
 		EventEnvelope<PaymentReplyPayload> envelope = switch (payment.getStatus()) {
 			case DONE -> EventEnvelope.of(EventType.PAYMENT_APPROVED, orderNo,

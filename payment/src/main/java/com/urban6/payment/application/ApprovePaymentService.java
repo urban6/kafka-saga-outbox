@@ -4,6 +4,7 @@ import com.urban6.payment.domain.BillingKey;
 import com.urban6.payment.domain.Payment;
 import com.urban6.payment.infra.client.PgChargeResult;
 import com.urban6.payment.infra.client.PgClient;
+import com.urban6.payment.infra.client.PgRetryableException;
 import com.urban6.payment.infra.persistence.BillingKeyRepository;
 import com.urban6.payment.infra.persistence.PaymentRepository;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +47,10 @@ public class ApprovePaymentService {
 
 	private Payment process(String orderNo, String customerId, BigDecimal amount, UUID eventId) {
 		// 이미 처리된 주문이면 PG 를 다시 부르지 않는다. 다만 회신은 다시 낸다 — 앞선 회신이 유실됐을 수 있다.
+		//
+		// IN_PROGRESS(결과를 모르는 결제)로 남아 있으면 replayReply 가 침묵한다.
+		// 여기서 조회를 한 번 더 해볼 수도 있지만 하지 않는다 — 해소는 복구 배치 한 곳에만 둔다.
+		// 두 곳에서 해소하면 같은 행을 동시에 확정하려 들고, 어느 쪽이 이겼는지 로그로 못 쫓는다.
 		Payment existing = paymentRepository.findByOrderNo(orderNo).orElse(null);
 		if (existing != null) {
 			log.info("payment already exists. orderNo={} status={}", orderNo, existing.getStatus());
@@ -55,6 +60,14 @@ public class ApprovePaymentService {
 		// 우리 쪽 식별자. PG 에는 보내지 않는다.
 		String paymentId = "PAY-" + UUID.randomUUID();
 		PgChargeResult result = charge(orderNo, customerId, amount);
+
+		// 돈이 안 빠진 게 확실한 실패다. DB 를 건드리지 않고 던져서 Kafka 재시도에 맡긴다.
+		// 멱등 선점은 record() 안에서 일어나므로, 여기서 나가면 애초에 선점되지 않는다 —
+		// 되돌릴 게 없다는 게 이 경로의 장점이다.
+		if (result.isRetryable()) {
+			log.info("pg charge retryable. orderNo={} code={}", orderNo, result.failureCode());
+			throw new PgRetryableException(result.failureCode(), result.failureMessage());
+		}
 
 		return paymentTransactionService.record(paymentId, orderNo, amount, result, eventId);
 	}
