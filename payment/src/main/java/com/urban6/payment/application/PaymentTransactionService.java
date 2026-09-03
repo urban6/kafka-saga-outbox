@@ -1,7 +1,7 @@
 package com.urban6.payment.application;
 
 import com.urban6.payment.domain.Payment;
-import com.urban6.payment.infra.client.PgConfirmResult;
+import com.urban6.payment.infra.client.PgChargeResult;
 import com.urban6.payment.infra.messaging.EventEnvelope;
 import com.urban6.payment.infra.messaging.EventType;
 import com.urban6.payment.infra.messaging.IdempotencyGuard;
@@ -60,7 +60,7 @@ public class PaymentTransactionService {
 	 */
 	@Transactional
 	public Payment record(String paymentId, String orderNo, BigDecimal amount,
-			PgConfirmResult result, UUID eventId) {
+			PgChargeResult result, UUID eventId) {
 
 		if (!claim(eventId, orderNo)) {
 			return null;

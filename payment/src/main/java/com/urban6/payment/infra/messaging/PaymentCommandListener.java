@@ -50,10 +50,10 @@ public class PaymentCommandListener {
 		ApprovePaymentCommand command =
 				jsonMapper.treeToValue(envelope.payload(), ApprovePaymentCommand.class);
 
-		log.info("approve payment command received. orderNo={} amount={} paymentKey={} eventId={}",
-				command.orderNo(), command.amount(), command.paymentKey(), envelope.eventId());
+		log.info("approve payment command received. orderNo={} customerId={} amount={} eventId={}",
+				command.orderNo(), command.customerId(), command.amount(), envelope.eventId());
 
 		approvePaymentService.approve(
-				envelope.eventId(), command.orderNo(), command.paymentKey(), command.amount());
+				envelope.eventId(), command.orderNo(), command.customerId(), command.amount());
 	}
 }

@@ -49,11 +49,9 @@ pg:
   connect-timeout: 1s
   read-timeout: 3s
 
-# Mock PG. session-ttl 은 인증(결제창) 후 승인까지의 유효시간 — Toss 문서 기준 10분.
-# 만료 경로를 실측할 때 몇 초로 줄인다.
+# Mock PG 장애 주입. 청구(/v1/billing/{billingKey}) 판정 앞에서 적용된다.
 # 장애 주입은 전부 0 이면 지금과 똑같이 동작한다. 검증할 때는 rate 를 1.0 으로 둔다 — 확률로는 재현이 안 된다.
 mockpg:
-  session-ttl: 10m
   reject-rate: 0.0    # 카드사 거절. 확정된 실패
   error-rate: 0.0     # 500. 선점을 되돌리므로 재시도하면 성공한다
   delay-rate: 0.0     # 아래 delay 를 넣을 비율

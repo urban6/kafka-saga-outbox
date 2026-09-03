@@ -11,8 +11,8 @@ public record ApproveRequest(
 		@NotBlank(message = "주문번호는 필수입니다")
 		String orderNo,
 
-		@NotBlank(message = "paymentKey는 필수입니다")
-		String paymentKey,
+		@NotBlank(message = "고객 ID는 필수입니다")
+		String customerId,
 
 		@NotNull(message = "결제 금액은 필수입니다")
 		@Positive(message = "결제 금액은 0보다 커야 합니다")
