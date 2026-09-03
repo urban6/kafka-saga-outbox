@@ -50,8 +50,13 @@ public enum EventType {
 	 * 와이어 문자열 → enum. <b>모르는 값이면 빈 Optional</b>이고 예외를 던지지 않는다.
 	 * <p>
 	 * payment 가 회신 종류를 추가해도 order 는 무시하고 다음 메시지로 간다.
-	 * 이 변환이 여기 한 곳에만 있어야 그 성질이 유지된다 — 다른 데서 {@code valueOf} 를 쓰면
-	 * 거기서 파티션이 막힌다.
+	 * 이 변환이 여기 한 곳에만 있어야 그 성질이 유지된다.
+	 * <p>
+	 * {@code valueOf} 를 쓰면 모르는 값마다 예외가 나고, {@code DefaultErrorHandler} 가
+	 * <b>4회 시도(2초 간격) 뒤에야</b> 그 메시지를 버린다. 영구히 막히진 않지만 그동안 같은 파티션의
+	 * 뒷 메시지가 전부 밀린다 — 프로듀서가 새 타입을 밀기 시작하면 처리량이 그 배수로 주저앉는다.
+	 * (실측: 통합 테스트에서 {@code valueOf} 로 바꿔도 다음 메시지는 결국 처리된다.
+	 * <b>영구 차단은 역직렬화 실패</b> 쪽이고, 그건 {@code ErrorHandlingDeserializer} 가 막는다)
 	 */
 	public static Optional<EventType> fromWire(String wireValue) {
 		return Optional.ofNullable(wireValue).map(BY_WIRE_VALUE::get);

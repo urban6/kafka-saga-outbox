@@ -12,7 +12,7 @@ import java.util.stream.Stream;
  * <p>
  * 그래도 enum 과 {@link #fromWire} 를 두는 이유는 <b>모르는 값을 만났을 때</b> 다.
  * {@code valueOf} 였다면 order 가 커맨드를 하나 추가하는 순간 그 메시지에서 예외가 나고,
- * 재시도해도 결과가 같아 파티션 하나가 통째로 막힌다.
+ * 재시도해도 결과가 같아 에러 핸들러가 포기할 때까지(2초 간격 5회) 같은 파티션의 뒷 메시지가 밀린다.
  */
 public enum CommandType {
 

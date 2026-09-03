@@ -156,7 +156,7 @@ class OrderSagaOrchestratorIntegrationTest extends OrderIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("없는 주문의 회신은 예외 없이 흘려보낸다 — 던지면 파티션이 막힌다")
+	@DisplayName("없는 주문의 회신은 예외 없이 흘려보낸다 — 던지면 재시도만 반복하다 버려진다")
 	void replyForUnknownSagaIsSwallowed() {
 		assertThatCode(() -> orchestrator.handleReply(
 				reply(UUID.randomUUID(), "ORD-20260903-NOSUCH01", EventType.PAYMENT_APPROVED),
