@@ -5,9 +5,12 @@ import com.urban6.order.domain.OrderStatus;
 import com.urban6.order.domain.SagaInstance;
 import com.urban6.order.domain.SagaStatus;
 import com.urban6.order.domain.SagaStep;
+import com.urban6.order.infra.messaging.EventEnvelope;
 import com.urban6.order.infra.messaging.EventType;
 import com.urban6.order.infra.messaging.IdempotencyGuard;
 import com.urban6.order.infra.messaging.InboundEnvelope;
+import com.urban6.order.infra.messaging.OrderEventPayload;
+import com.urban6.order.infra.messaging.OutboxWriter;
 import com.urban6.order.infra.persistence.OrderRepository;
 import com.urban6.order.infra.persistence.ProductRepository;
 import com.urban6.order.infra.persistence.SagaInstanceRepository;
@@ -51,6 +54,7 @@ public class OrderSagaOrchestrator {
 	private final OrderRepository orderRepository;
 	private final ProductRepository productRepository;
 	private final IdempotencyGuard idempotencyGuard;
+	private final OutboxWriter outboxWriter;
 
 	/**
 	 * {@code consumed_message.consumer_group} 에 들어가는 값.
@@ -168,7 +172,30 @@ public class OrderSagaOrchestrator {
 					"order status mismatch. orderNo=" + orderNo + " expected=PENDING");
 		}
 
+		publishDomainEvent(order, decision, nextOrderStatus);
+
 		log.info("saga applied. orderNo={} decision={} orderStatus={}", orderNo, decision, nextOrderStatus);
+	}
+
+	/**
+	 * {@code order.events} 로 나가는 외부용 이벤트. <b>같은 트랜잭션</b>이라 주문 전이와 함께 커밋된다.
+	 * <p>
+	 * 조건부 UPDATE 가 성공한 뒤에만 부른다. 0건이었으면 이미 예외로 롤백됐거나 물러난 뒤다 —
+	 * 상태가 안 바뀌었는데 "완료됐다" 를 발행하면 그게 제일 고약한 거짓말이다.
+	 * <p>
+	 * 소비자는 아직 없다. 그래도 발행하는 이유는 <b>같은 outbox 가 토픽 둘로 갈라지는 것</b>을
+	 * 보여주기 위해서다 — 커맨드는 {@code payment.commands}, 도메인 이벤트는 {@code order.events} 로,
+	 * 라우팅은 {@code EventType} 이 들고 있는 토픽이 결정한다.
+	 */
+	private void publishDomainEvent(Order order, SagaDecision decision, OrderStatus nextOrderStatus) {
+		EventType eventType = decision == SagaDecision.COMPLETE
+				? EventType.ORDER_COMPLETED
+				: EventType.ORDER_CANCELED;
+
+		// status 는 엔티티가 아니라 전이시킨 값을 쓴다. 벌크 UPDATE 는 1차 캐시를 우회한다.
+		outboxWriter.append("Order", EventEnvelope.of(eventType, order.getOrderNo(),
+				new OrderEventPayload(order.getOrderNo(), order.getCustomerId(),
+						nextOrderStatus, order.getTotalAmount())));
 	}
 
 	/**
