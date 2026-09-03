@@ -44,6 +44,23 @@ spring:
       max-poll-records: 50
     # producer 설정은 두지 않는다. 커맨드는 Outbox INSERT -> Debezium 으로 나간다.
 
+saga:
+  stuck:
+    # 재시도가 아직 도는 중인 사가를 잡으면 알람 피로만 남는다.
+    # 임계값은 Kafka 재시도가 소진되는 시간보다 커야 한다.
+    scan-interval: 30s
+    default-threshold: 120s
+    # 장애 때 수천 건을 로드하면 탐지가 장애를 키운다. 여기서 자른다.
+    scan-limit: 100
+    thresholds:
+      APPROVE_PAYMENT: 60s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+
 logging:
   level:
     com.urban6: DEBUG
