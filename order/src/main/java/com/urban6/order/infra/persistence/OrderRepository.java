@@ -14,8 +14,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Optional<Order> findByOrderNo(String orderNo);
 
-    boolean existsByOrderNo(String orderNo);
-
     /**
      * 주문 상태 전이. 기대한 상태가 아니면 0건이고, 호출부가 그에 맞게 분기한다.
      *

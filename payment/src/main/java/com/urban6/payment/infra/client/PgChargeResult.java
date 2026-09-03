@@ -55,10 +55,6 @@ public record PgChargeResult(
 		return outcome == Outcome.RETRYABLE;
 	}
 
-	public boolean isInDoubt() {
-		return outcome == Outcome.IN_DOUBT;
-	}
-
 	/** 결과를 DB 에 확정할 수 있는가. 아니면 나중에 다시 봐야 한다. */
 	public boolean isSettled() {
 		return outcome == Outcome.APPROVED || outcome == Outcome.REJECTED;

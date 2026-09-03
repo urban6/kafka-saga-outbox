@@ -110,28 +110,4 @@ public class OutboxMessage implements Persistable<UUID> {
 	void markNotNew() {
 		this.isNew = false;
 	}
-
-	public String getAggregateType() {
-		return aggregateType;
-	}
-
-	public String getAggregateId() {
-		return aggregateId;
-	}
-
-	public EventType getEventType() {
-		return eventType;
-	}
-
-	public String getTopic() {
-		return topic;
-	}
-
-	public String getPayload() {
-		return payload;
-	}
-
-	public Instant getCreatedAt() {
-		return createdAt;
-	}
 }

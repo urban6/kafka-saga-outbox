@@ -2,9 +2,11 @@ package com.urban6.payment.infra.messaging;
 
 import com.urban6.payment.application.RegisterBillingKeyService;
 import com.urban6.payment.support.PaymentKafkaIntegrationTest;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.support.KafkaHeaders;
 
 import java.time.Duration;
 import java.util.UUID;
@@ -91,6 +93,48 @@ class PaymentCommandListenerIntegrationTest extends PaymentKafkaIntegrationTest 
 
 		// 같은 키라 같은 파티션이고 순서도 보장된다. 청구됐다는 건 앞 메시지를 넘어갔다는 뜻이다.
 		awaitPaymentStatus(orderNo, "DONE");
+	}
+
+	@Test
+	@DisplayName("poison pill 은 원본 바이트 그대로 DLT 에 남는다 — 스킵은 폐기가 아니다")
+	void poisonPillIsPublishedToDlt() {
+		String orderNo = newOrderNo();
+		String broken = "{ not json at all";
+
+		publishCommand(orderNo, broken);
+
+		ConsumerRecord<String, String> dead = awaitDltRecord(orderNo);
+
+		// 원문 그대로여야 한다. 프로듀서가 무엇을 잘못 보냈는지 보려면 보낸 바이트가 필요하다.
+		assertThat(dead.value()).isEqualTo(broken);
+		assertThat(headerOf(dead, KafkaHeaders.DLT_ORIGINAL_TOPIC)).isEqualTo(Topics.PAYMENT_COMMANDS);
+		// 역직렬화 실패는 재시도 대상이 아니라 첫 실패에서 곧장 온다.
+		assertThat(headerOf(dead, KafkaHeaders.DLT_EXCEPTION_FQCN)).contains("DeserializationException");
+	}
+
+	@Test
+	@DisplayName("PG 장애가 재시도 예산보다 길면 커맨드가 DLT 에 남는다 — 재생하면 그만이다")
+	void pgOutageBeyondRetryBudgetIsPublishedToDlt() {
+		registerCard("1234567812345678");
+		String orderNo = newOrderNo();
+
+		// 확률이 아니라 확정으로 켠다. 500 은 RETRYABLE 이라 2초 x 5 를 전부 쓰고 소진된다.
+		faults.setErrorRate(1.0);
+
+		publishCommand(orderNo, approveCommand(orderNo));
+
+		ConsumerRecord<String, String> dead = awaitDltRecord(orderNo);
+
+		// RETRYABLE 은 DB 에 아무것도 남기지 않는다 — 그게 이 경로의 설계였다.
+		// 그래서 DLT 가 이 커맨드의 유일한 흔적이고, 없으면 주문이 PENDING 에 굳은 채 끝난다.
+		assertThat(countForOrder("payment", orderNo)).isZero();
+		assertThat(countForOrder("outbox", orderNo)).isZero();
+
+		// 커맨드가 봉투째 남아야 그대로 되밀 수 있다. 돈이 안 빠진 게 확실한 실패라 재생이 안전하다.
+		assertThat(dead.value()).contains("APPROVE_PAYMENT").contains(orderNo);
+		assertThat(headerOf(dead, KafkaHeaders.DLT_ORIGINAL_TOPIC)).isEqualTo(Topics.PAYMENT_COMMANDS);
+		// 리스너 예외는 컨테이너가 감싸므로 진짜 원인은 cause 헤더에 있다.
+		assertThat(headerOf(dead, KafkaHeaders.DLT_EXCEPTION_CAUSE_FQCN)).contains("PgRetryableException");
 	}
 
 	@Test

@@ -51,11 +51,6 @@ public class Product {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    /** 지금 새로 예약할 수 있는 수량. 표시용이며, 예약 가능 여부 판정은 조건부 UPDATE 가 한다. */
-    public int availableQuantity() {
-        return totalQuantity - reservedQuantity;
-    }
-
     @PrePersist
     void onCreate() {
         Instant now = Instant.now();

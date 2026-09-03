@@ -3,9 +3,14 @@ package com.urban6.order.support;
 import com.urban6.order.infra.messaging.Topics;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.Header;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,8 +23,12 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -50,11 +59,15 @@ public abstract class OrderKafkaIntegrationTest {
 
 	private static final KafkaProducer<String, String> PRODUCER;
 
+	/** DLT 도착 대기 상한. 재시도 소진(1초 x 3)에 컨슈머 그룹 합류까지 넉넉히 덮는다. */
+	private static final Duration DLT_TIMEOUT = Duration.ofSeconds(30);
+
 	static {
 		KAFKA.start();
 		try (Admin admin = Admin.create(Map.of("bootstrap.servers", KAFKA.getBootstrapServers()))) {
 			admin.createTopics(List.of(
 					new NewTopic(Topics.ORDER_SAGA_REPLIES, 3, (short) 1),
+					new NewTopic(Topics.ORDER_SAGA_REPLIES_DLT, 3, (short) 1),
 					new NewTopic(Topics.PAYMENT_COMMANDS, 3, (short) 1),
 					new NewTopic(Topics.ORDER_EVENTS, 3, (short) 1))).all().get(30, TimeUnit.SECONDS);
 		} catch (Exception e) {
@@ -144,5 +157,47 @@ public abstract class OrderKafkaIntegrationTest {
 	protected int countOf(String table) {
 		Integer count = jdbcTemplate.queryForObject("select count(*) from " + table, Integer.class);
 		return count == null ? 0 : count;
+	}
+
+	/**
+	 * DLT 에 도착한 레코드를 orderNo 키로 찾아 돌려준다. 이 저장소의 유일한 테스트 컨슈머다.
+	 *
+	 * 다른 단언은 전부 JDBC 로 한다 — 리스너가 DB 를 바꾸는 게 관측점이기 때문이다. 그런데 DLT 는
+	 * 종착지가 토픽이라 DB 에 아무 흔적이 없다. 여기서만 브로커를 직접 읽어야 한다.
+	 *
+	 * awaitility 를 쓰지 않는다. KafkaConsumer 는 스레드 안전하지 않은데 awaitility 는
+	 * 단언을 별도 스레드에서 돌린다. 폴링 루프를 직접 도는 편이 안전하고 읽기도 쉽다.
+	 *
+	 * 그룹을 매번 새로 만들고 earliest 로 읽으므로 앞 테스트가 남긴 레코드까지 다시 본다.
+	 * 그래서 키로 좁힌다 — countForOrder 가 전역 카운트를 피하는 것과 같은 이유다.
+	 */
+	protected ConsumerRecord<String, String> awaitDltRecord(String orderNo) {
+		Map<String, Object> props = Map.of(
+				ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers(),
+				ConsumerConfig.GROUP_ID_CONFIG, "dlt-probe-" + UUID.randomUUID(),
+				ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest",
+				ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+
+		try (KafkaConsumer<String, String> consumer =
+				 new KafkaConsumer<>(props, new StringDeserializer(), new StringDeserializer())) {
+
+			consumer.subscribe(List.of(Topics.ORDER_SAGA_REPLIES_DLT));
+
+			Instant deadline = Instant.now().plus(DLT_TIMEOUT);
+			while (Instant.now().isBefore(deadline)) {
+				for (ConsumerRecord<String, String> record : consumer.poll(Duration.ofMillis(500))) {
+					if (orderNo.equals(record.key())) {
+						return record;
+					}
+				}
+			}
+		}
+		throw new AssertionError("no DLT record arrived for orderNo=" + orderNo);
+	}
+
+	/** DLT 헤더 읽기. 재생할지 사람이 볼지를 kafka_dlt-exception-fqcn 하나로 가른다. */
+	protected static String headerOf(ConsumerRecord<String, String> record, String name) {
+		Header header = record.headers().lastHeader(name);
+		return header == null ? null : new String(header.value(), StandardCharsets.UTF_8);
 	}
 }

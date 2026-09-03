@@ -3,6 +3,7 @@ package com.urban6.payment.application;
 import com.urban6.payment.domain.Payment;
 import com.urban6.payment.domain.PaymentStatus;
 import com.urban6.payment.infra.client.PgChargeResult;
+import com.urban6.payment.infra.messaging.CommandType;
 import com.urban6.payment.infra.messaging.EventEnvelope;
 import com.urban6.payment.infra.messaging.EventType;
 import com.urban6.payment.infra.messaging.IdempotencyGuard;
@@ -132,12 +133,18 @@ public class PaymentTransactionService {
 		return true;
 	}
 
-	/** eventId 가 없으면(HTTP 진입) 멱등 판정 자체가 필요 없다. */
+	/**
+	 * eventId 가 없으면(HTTP 진입) 멱등 판정 자체가 필요 없다.
+	 *
+	 * event_type 은 리터럴이 아니라 CommandType 에서 가져온다. 이 컬럼은 사후 진단에만
+	 * 쓰여서 틀려도 아무도 모르기 때문이다 — 커맨드가 늘 때 조용히 어긋나지 않게 한곳에 묶어둔다.
+	 */
 	private boolean claim(UUID eventId, String orderNo) {
 		if (eventId == null) {
 			return true;
 		}
-		boolean claimed = idempotencyGuard.claim(eventId, consumerGroup, "APPROVE_PAYMENT");
+		boolean claimed = idempotencyGuard.claim(
+				eventId, consumerGroup, CommandType.APPROVE_PAYMENT.name());
 		if (!claimed) {
 			log.debug("duplicate command ignored. eventId={} orderNo={}", eventId, orderNo);
 		}

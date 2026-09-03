@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
@@ -46,15 +47,26 @@ public class KafkaConsumerConfig {
 				new ErrorHandlingDeserializer<>(delegate));
 	}
 
-	/** 파티션이 3개라 concurrency 도 3. 에러 핸들러는 1초 간격 3회 재시도 후 스킵. */
+	/**
+	 * 파티션이 3개라 concurrency 도 3.
+	 *
+	 * 에러 핸들러는 1초 간격 3회 재시도 뒤 DLT 로 넘긴다. recoverer 를 안 주면
+	 * 기본 동작이 "ERROR 로그 한 줄 찍고 오프셋 커밋" 이라 메시지가 본문째 사라진다 —
+	 * 그러면 Stuck 탐지가 알려줘도 손에 쥐는 게 없어 수동 복구조차 못 한다.
+	 *
+	 * 역직렬화 예외는 재시도 대상에서 기본 제외되므로 backoff 를 거치지 않고
+	 * 첫 실패에서 곧장 DLT 로 간다 — 몇 번을 다시 읽어도 같은 바이트다.
+	 */
 	@Bean(CONTAINER_FACTORY)
 	public ConcurrentKafkaListenerContainerFactory<String, InboundEnvelope> sagaReplyListenerContainerFactory(
-			ConsumerFactory<String, InboundEnvelope> sagaReplyConsumerFactory) {
+			ConsumerFactory<String, InboundEnvelope> sagaReplyConsumerFactory,
+			DeadLetterPublishingRecoverer deadLetterRecoverer) {
 
 		var factory = new ConcurrentKafkaListenerContainerFactory<String, InboundEnvelope>();
 		factory.setConsumerFactory(sagaReplyConsumerFactory);
 		factory.setConcurrency(3);
-		factory.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(1_000L, 3)));
+		factory.setCommonErrorHandler(
+				new DefaultErrorHandler(deadLetterRecoverer, new FixedBackOff(1_000L, 3)));
 		return factory;
 	}
 }

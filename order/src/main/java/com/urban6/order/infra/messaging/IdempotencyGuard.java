@@ -14,8 +14,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * 선점 INSERT 와 실제 처리는 같은 트랜잭션이어야 한다. 처리 도중 롤백되면 선점도 같이 풀려야
  * 재시도가 가능하기 때문이다.
  *
- * 서비스 모듈에서 빈으로 등록하려면 config 패키지에서 @Bean 으로 만들거나
- * com.urban6.outbox 를 컴포넌트 스캔 대상에 넣는다.
+ * @Component 가 없다. 무엇을 쓸지는 인프라가 아니라 서비스가 정한다 —
+ * config.MessagingConfig 가 @Bean 으로 등록한다.
  */
 @RequiredArgsConstructor
 public class IdempotencyGuard {

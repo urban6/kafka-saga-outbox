@@ -14,9 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * 발행은 Debezium 이 binlog 로 처리하므로 조회(폴링) 쿼리는 없다. 애플리케이션은 INSERT 만 하고,
  * 이미 발행된 오래된 행을 주기적으로 지우는 것만 담당한다.
- *
- * 서비스 모듈에서 쓰려면 @EnableJpaRepositories/@EntityScan 에
- * com.urban6.outbox 패키지를 포함시켜야 한다.
  */
 public interface OutboxRepository extends JpaRepository<OutboxMessage, UUID> {
 

@@ -4,9 +4,6 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 /**
  * 서비스 사이를 오가는 모든 메시지의 공통 봉투.
  *
@@ -35,25 +32,16 @@ public record EventEnvelope<T>(
 
 	private static final int DEFAULT_VERSION = 1;
 
-	@JsonCreator
-	public EventEnvelope(
-			@JsonProperty("eventId") UUID eventId,
-			@JsonProperty("eventType") EventType eventType,
-			@JsonProperty("eventVersion") int eventVersion,
-			@JsonProperty("aggregateId") String aggregateId,
-			@JsonProperty("partitionKey") String partitionKey,
-			@JsonProperty("occurredAt") Instant occurredAt,
-			@JsonProperty("payload") T payload,
-			@JsonProperty("headers") Map<String, String> headers
-	) {
-		this.eventId = eventId;
-		this.eventType = eventType;
-		this.eventVersion = eventVersion;
-		this.aggregateId = aggregateId;
-		this.partitionKey = partitionKey;
-		this.occurredAt = occurredAt;
-		this.payload = payload;
-		this.headers = headers == null ? Map.of() : Map.copyOf(headers);
+	/**
+	 * 이 봉투는 직렬화만 된다(outbox 로 나갈 때). 역직렬화는 InboundEnvelope 몫이라
+	 * Jackson 애노테이션이 필요 없다 — record 는 Jackson 3 가 그대로 읽고,
+	 * 애초에 이 타입으로 읽는 코드가 없다.
+	 *
+	 * headers 만 방어한다. 널이면 빈 맵으로, 아니면 불변 복사본으로 — 봉투가 발행된 뒤에
+	 * 원본 맵이 바뀌면 outbox 에 남은 JSON 과 메모리의 값이 갈린다.
+	 */
+	public EventEnvelope {
+		headers = headers == null ? Map.of() : Map.copyOf(headers);
 	}
 
 	/** 새 이벤트 생성. eventId 는 새로 발급하고 파티션 키는 aggregateId 를 그대로 쓴다. */
@@ -68,23 +56,5 @@ public record EventEnvelope<T>(
 				payload,
 				Map.of()
 		);
-	}
-
-	/** 받은 메시지의 추적 정보를 이어받아 다음 이벤트를 만든다. */
-	public <R> EventEnvelope<R> reply(EventType replyType, R replyPayload) {
-		return new EventEnvelope<>(
-				UUID.randomUUID(),
-				replyType,
-				DEFAULT_VERSION,
-				aggregateId,
-				partitionKey,
-				Instant.now(),
-				replyPayload,
-				headers
-		);
-	}
-
-	public String topic() {
-		return eventType.topic();
 	}
 }

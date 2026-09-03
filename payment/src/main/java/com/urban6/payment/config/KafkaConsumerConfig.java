@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
@@ -56,12 +57,14 @@ public class KafkaConsumerConfig {
 	/**
 	 * 파티션이 3개라 concurrency 도 3. 더 올려도 컨슈머 하나는 놀게 된다.
 	 *
-	 * DefaultErrorHandler 는 2초 간격 5회 재시도 후 로그를 남기고 넘어간다.
-	 * 역직렬화 예외는 재시도 대상에서 기본 제외된다 — 몇 번을 다시 읽어도 결과가 같기 때문이다.
+	 * DefaultErrorHandler 는 2초 간격 5회 재시도 후 DLT 로 넘긴다.
+	 * 역직렬화 예외는 재시도 대상에서 기본 제외되므로 backoff 를 거치지 않고
+	 * 첫 실패에서 곧장 DLT 로 간다 — 몇 번을 다시 읽어도 같은 바이트다.
 	 */
 	@Bean(CONTAINER_FACTORY)
 	public ConcurrentKafkaListenerContainerFactory<String, InboundEnvelope> paymentCommandListenerContainerFactory(
-			ConsumerFactory<String, InboundEnvelope> paymentCommandConsumerFactory) {
+			ConsumerFactory<String, InboundEnvelope> paymentCommandConsumerFactory,
+			DeadLetterPublishingRecoverer deadLetterRecoverer) {
 
 		var factory = new ConcurrentKafkaListenerContainerFactory<String, InboundEnvelope>();
 		factory.setConsumerFactory(paymentCommandConsumerFactory);
@@ -69,7 +72,11 @@ public class KafkaConsumerConfig {
 		// RETRYABLE 이 실제 경로가 됐다. 1초x3(총 4초)은 PG 가 잠깐만 흔들려도 커맨드를 버린다.
 		// 2초x5(총 10초)로 짧은 blip 은 흡수하고, 그 이상은 Stuck 탐지에 맡긴다 —
 		// 여기서 더 늘리면 그 파티션의 뒷 주문이 그만큼 밀린다.
-		factory.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(2_000L, 5)));
+		//
+		// 소진된 커맨드는 버리지 않고 DLT 로 넘긴다. PG 장애가 10초보다 길면 이 경로가 실제로 열리는데,
+		// 그때 커맨드를 잃으면 주문이 PENDING 에 굳고 고객은 다시 주문하는 수밖에 없다.
+		factory.setCommonErrorHandler(
+				new DefaultErrorHandler(deadLetterRecoverer, new FixedBackOff(2_000L, 5)));
 		return factory;
 	}
 }

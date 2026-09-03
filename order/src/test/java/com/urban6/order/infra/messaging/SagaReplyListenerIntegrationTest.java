@@ -3,9 +3,11 @@ package com.urban6.order.infra.messaging;
 import com.urban6.order.api.dto.PlaceOrderRequest;
 import com.urban6.order.application.PlaceOrderService;
 import com.urban6.order.support.OrderKafkaIntegrationTest;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.support.KafkaHeaders;
 
 import java.time.Duration;
 import java.util.List;
@@ -91,6 +93,49 @@ class SagaReplyListenerIntegrationTest extends OrderKafkaIntegrationTest {
 
 		// 같은 키라 같은 파티션이고 순서도 보장된다. 완료됐다는 건 앞 메시지를 넘어갔다는 뜻이다.
 		awaitOrder(orderNo, "COMPLETED");
+	}
+
+	@Test
+	@DisplayName("poison pill 은 원본 바이트 그대로 DLT 에 남는다 — 스킵은 폐기가 아니다")
+	void poisonPillIsPublishedToDlt() {
+		String orderNo = placedOrder(1);
+		String broken = "{ this is not json";
+
+		publishReply(orderNo, broken);
+
+		ConsumerRecord<String, String> dead = awaitDltRecord(orderNo);
+
+		// 원문 그대로여야 한다. base64 나 JSON 으로 감싸지면 무엇이 깨졌는지 눈으로 못 본다 —
+		// 프로듀서를 고치려면 보낸 바이트가 필요하다.
+		assertThat(dead.value()).isEqualTo(broken);
+		assertThat(headerOf(dead, KafkaHeaders.DLT_ORIGINAL_TOPIC)).isEqualTo(Topics.ORDER_SAGA_REPLIES);
+		// 역직렬화 실패는 재시도 대상이 아니라 첫 실패에서 곧장 온다.
+		assertThat(headerOf(dead, KafkaHeaders.DLT_EXCEPTION_FQCN)).contains("DeserializationException");
+	}
+
+	@Test
+	@DisplayName("재시도를 소진한 회신은 봉투째 DLT 에 남는다 — 돈이 빠진 승인을 잃지 않는다")
+	void exhaustedRetriesArePublishedToDlt() {
+		String orderNo = placedOrder(1);
+
+		// 사가는 STARTED 인데 주문은 이미 CANCELED = 둘이 어긋난 상태.
+		// apply() 의 주문 전이가 0건이 되어 IllegalStateException 으로 롤백되고, 재시도해도 상태는 그대로다.
+		jdbcTemplate.update("update orders set status = 'CANCELED' where order_no = ?", orderNo);
+
+		publishReply(orderNo, approvalOf(orderNo));
+
+		ConsumerRecord<String, String> dead = awaitDltRecord(orderNo);
+
+		// 역직렬화는 성공했으므로 봉투 객체가 JSON 으로 실린다. paymentKey 가 살아 있어야
+		// 사람이 이 결제를 쫓아갈 수 있다 — 이게 없으면 payment_db 를 손으로 대조해야 한다.
+		assertThat(dead.value()).contains("PAYMENT_APPROVED").contains(orderNo).contains("tgen_x");
+		assertThat(headerOf(dead, KafkaHeaders.DLT_ORIGINAL_TOPIC)).isEqualTo(Topics.ORDER_SAGA_REPLIES);
+
+		// 리스너 예외는 컨테이너가 ListenerExecutionFailedException 으로 감싸므로 진짜 원인은 cause 헤더에 있다.
+		// 역직렬화 실패는 감싸이지 않아 위 테스트처럼 fqcn 에 그대로 온다 —
+		// 두 부류를 가르려면 둘 다 봐야 한다. 한쪽만 보면 분류가 조용히 틀린다.
+		assertThat(headerOf(dead, KafkaHeaders.DLT_EXCEPTION_FQCN)).contains("ListenerExecutionFailedException");
+		assertThat(headerOf(dead, KafkaHeaders.DLT_EXCEPTION_CAUSE_FQCN)).contains("IllegalStateException");
 	}
 
 	@Test

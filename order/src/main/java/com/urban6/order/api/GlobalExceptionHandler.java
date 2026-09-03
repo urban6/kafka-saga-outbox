@@ -1,7 +1,6 @@
 package com.urban6.order.api;
 
 import com.urban6.order.application.IdempotencyConflictException;
-import com.urban6.order.domain.OrderNotFoundException;
 import com.urban6.order.domain.OutOfStockException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,12 +69,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of("OUT_OF_STOCK", "재고가 부족한 상품이 있습니다",
                         List.of(e.getProductId() + ": " + e.getRequestedQuantity() + "개 요청")));
-    }
-
-    @ExceptionHandler(OrderNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleOrderNotFound(OrderNotFoundException e) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ErrorResponse.of("ORDER_NOT_FOUND", "주문을 찾을 수 없습니다", List.of(e.getOrderNo())));
     }
 
     @ExceptionHandler(Exception.class)
