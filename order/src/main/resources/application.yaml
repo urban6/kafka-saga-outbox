@@ -32,6 +32,12 @@ spring:
   jackson:
     default-property-inclusion: non_null
 
+  task:
+    scheduling:
+      pool:
+        # 배치가 둘(Stuck 탐지 / 정리)이다. 기본 1이면 하나가 늦을 때 다른 하나가 밀린다.
+        size: 2
+
   kafka:
     bootstrap-servers: localhost:9092
     consumer:
@@ -54,6 +60,17 @@ saga:
     scan-limit: 100
     thresholds:
       APPROVE_PAYMENT: 60s
+
+# 정리 배치. 기준은 전부 시간이다 — 사가 완료 여부로 지우면 안 된다(발행 여부를 앱이 모른다).
+retention:
+  scan-interval: 1h
+  outbox: 7d
+  # Kafka retention(기본 7d) 보다 길어야 한다. 짧으면 재전달된 메시지를 중복 처리한다.
+  consumed-message: 14d
+  api-idempotency: 7d
+  # DELETE 한 번의 상한. 무제한 DELETE 는 락을 오래 잡는다.
+  batch-size: 500
+  max-batches-per-run: 20
 
 management:
   endpoints:

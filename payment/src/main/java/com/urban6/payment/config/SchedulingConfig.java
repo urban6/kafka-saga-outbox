@@ -14,6 +14,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  */
 @Configuration
 @EnableScheduling
-@EnableConfigurationProperties(InDoubtProperties.class)
+@EnableConfigurationProperties({InDoubtProperties.class, RetentionProperties.class})
 public class SchedulingConfig {
 }

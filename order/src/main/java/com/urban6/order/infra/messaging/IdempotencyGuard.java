@@ -27,7 +27,7 @@ public class IdempotencyGuard {
 			values (?, ?, ?, ?)
 			""";
 
-	private static final String PURGE = "delete from consumed_message where processed_at < ?";
+	private static final String PURGE = "delete from consumed_message where processed_at < ? limit ?";
 
 	private final JdbcTemplate jdbcTemplate;
 
@@ -40,8 +40,15 @@ public class IdempotencyGuard {
 		return inserted > 0;
 	}
 
-	/** 보관 주기가 지난 처리 이력 정리. idx_processed 를 탄다. */
-	public int purgeProcessedBefore(Instant threshold) {
-		return jdbcTemplate.update(PURGE, java.sql.Timestamp.from(threshold));
+	/**
+	 * 보관 주기가 지난 처리 이력 정리. idx_processed 를 탄다.
+	 * <p>
+	 * 보관 기간은 <b>Kafka retention 보다 길어야</b> 한다. 짧으면 재전달된 메시지를 처음 보는 것으로 착각해
+	 * 중복 처리한다 — 결제라면 이중 청구다.
+	 * <p>
+	 * {@code limit} 으로 한 번에 지우는 양을 묶는다. 무제한 DELETE 는 락을 오래 잡는다.
+	 */
+	public int purgeProcessedBefore(Instant threshold, int batchSize) {
+		return jdbcTemplate.update(PURGE, java.sql.Timestamp.from(threshold), batchSize);
 	}
 }

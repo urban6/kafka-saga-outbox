@@ -42,6 +42,12 @@ spring:
     # producer 설정은 두지 않는다. 회신은 KafkaTemplate 이 아니라
     # Outbox INSERT -> Debezium 으로 나가므로 이 서비스에 프로듀서가 없다.
 
+  task:
+    scheduling:
+      pool:
+        # 배치가 둘(in-doubt 복구 / 정리)이다. 기본 1이면 하나가 늦을 때 다른 하나가 밀린다.
+        size: 2
+
 # PG 연동. Mock 이 같은 앱(8082) 안에 있지만 실제 HTTP 로 부른다 —
 # 빈을 직접 주입하면 타임아웃·연결 끊김이 재현되지 않아 방어 코드를 검증할 수 없다.
 pg:
@@ -66,6 +72,15 @@ payment:
     scan-limit: 50
     # 이만큼 조회해도 안 풀리면 사람이 봐야 한다. 돈이 걸린 미결이다.
     escalate-after: 5m
+
+# 정리 배치. 결제 이력(payment)은 지우지 않는다 — 운영 데이터가 아니라 기록이다.
+retention:
+  scan-interval: 1h
+  outbox: 7d
+  # Kafka retention(기본 7d) 보다 길어야 한다. 짧으면 재전달된 메시지를 중복 처리 = 이중 청구다.
+  consumed-message: 14d
+  batch-size: 500
+  max-batches-per-run: 20
 
 logging:
   level:

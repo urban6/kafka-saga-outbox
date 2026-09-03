@@ -31,7 +31,7 @@ public class ApiIdempotencyStore {
     private static final String FIND =
             "select request_hash, order_no from api_idempotency where idempotency_key = ?";
 
-    private static final String PURGE = "delete from api_idempotency where created_at < ?";
+    private static final String PURGE = "delete from api_idempotency where created_at < ? limit ?";
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -50,9 +50,14 @@ public class ApiIdempotencyStore {
         return rows.stream().findFirst();
     }
 
-    /** 보관 주기가 지난 기록 정리. {@code idx_created} 를 탄다. */
-    public int purgeCreatedBefore(Instant threshold) {
-        return jdbcTemplate.update(PURGE, Timestamp.from(threshold));
+    /**
+     * 보관 주기가 지난 기록 정리. {@code idx_created} 를 탄다.
+     * <p>
+     * 이 표는 {@code consumed_message} 와 달리 <b>결과({@code order_no})까지</b> 들고 있다.
+     * 클라이언트 재시도 창보다 길게만 잡으면 되므로 outbox 와 같은 기준으로 충분하다.
+     */
+    public int purgeCreatedBefore(Instant threshold, int batchSize) {
+        return jdbcTemplate.update(PURGE, Timestamp.from(threshold), batchSize);
     }
 
     public record Claimed(String requestHash, String orderNo) {

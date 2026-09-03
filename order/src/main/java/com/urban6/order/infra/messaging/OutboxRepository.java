@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 아웃박스 쓰기와 보관 정리용.
@@ -24,8 +25,15 @@ public interface OutboxRepository extends JpaRepository<OutboxMessage, UUID> {
 	 * <p>
 	 * 커넥터가 아직 읽지 않은 행까지 지우면 그 이벤트는 영영 발행되지 않는다. 임계값은 커넥터 지연보다
 	 * 충분히 길게(예: 수 시간) 잡는다.
+	 * <p>
+	 * <b>{@code limit} 이 붙은 네이티브 쿼리다.</b> JPQL 은 DELETE 에 상한을 못 건다.
+	 * 무제한 DELETE 는 수백만 행을 한 트랜잭션에 담아 락을 오래 잡는다 — 정리 배치가 장애를 만든다.
+	 * <p>
+	 * <b>메서드에 {@code @Transactional} 이 붙어 있다.</b> {@code SimpleJpaRepository} 의 클래스 레벨 기본값이
+	 * {@code readOnly = true} 라 이게 없으면 쓰기가 막히고, 호출마다 트랜잭션이 끊겨야 배치 상한이 의미를 갖는다.
 	 */
+	@Transactional
 	@Modifying
-	@Query("delete from OutboxMessage m where m.createdAt < :threshold")
-	int deleteByCreatedAtBefore(@Param("threshold") Instant threshold);
+	@Query(value = "delete from outbox where created_at < :threshold limit :batchSize", nativeQuery = true)
+	int deleteByCreatedAtBefore(@Param("threshold") Instant threshold, @Param("batchSize") int batchSize);
 }
