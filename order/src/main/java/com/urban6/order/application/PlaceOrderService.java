@@ -33,13 +33,6 @@ import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/**
- * 주문 접수 유스케이스. 주문 INSERT → 재고 예약 → 사가 INSERT → 결제 승인 커맨드 Outbox 적재를
- * 한 로컬 트랜잭션으로 처리한다. 커밋되면 넷이 binlog 에 함께 실리고 Debezium 이 커맨드를 발행한다.
- *
- * 원터치(빌링키) 결제라 주문 생성이 곧 사가의 시작이다. 결제창에서 사용자 인증을 기다릴 일이 없고,
- * 사용자는 202 를 받은 뒤 주문 조회를 폴링해 결과를 본다.
- */
 @Service
 @RequiredArgsConstructor
 public class PlaceOrderService {
@@ -55,17 +48,11 @@ public class PlaceOrderService {
     private final ObjectMapper objectMapper;
 
     /**
-     * 재고 예약은 여기서 한다. 결제 승인 회신이 돌아올 때 품절을 만나지 않게 하려는 것이고,
-     * 거절되면 오케스트레이터가 같은 수량을 되돌린다.
-     *
-     * 뒷 라인 예약이 실패하면 예외를 던져 전부 롤백한다. 주문도 앞 라인 예약도 사가도 함께 사라진다.
-     *
-     * 멱등 선점이 이 트랜잭션 안에 있어야 하는 이유가 둘이다. 동시 요청은 유니크 인덱스 락에 걸려
-     * 앞 요청이 커밋될 때까지 기다렸다가 재생으로 빠지고, 주문이 롤백되면 선점도 함께 풀려 재시도가 가능하다.
+     * 주문을 접수한다. 멱등 선점, 재고 예약, 주문·사가 저장, 결제 승인 커맨드 적재를
+     * 한 트랜잭션으로 처리한다. 같은 Idempotency-Key 가 다시 오면 먼저 만든 주문을 돌려준다.
      */
     @Transactional
     public PlaceOrderResponse place(String idempotencyKey, PlaceOrderRequest request) {
-        // order_no 를 선점 행에 함께 넣어야 두 번째 요청이 그 값을 읽을 수 있다. 그래서 선점보다 먼저 만든다.
         String orderNo = orderNoGenerator.generate();
         if (!apiIdempotencyStore.claim(idempotencyKey, requestHash(request), orderNo)) {
             return replay(idempotencyKey, request);

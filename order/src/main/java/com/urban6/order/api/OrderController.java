@@ -27,12 +27,6 @@ public class OrderController {
     private final PlaceOrderService placeOrderService;
     private final OrderQueryService orderQueryService;
 
-    /**
-     * Idempotency-Key 는 필수다. 돈이 빠지는 요청이라 헤더를 빠뜨린 클라이언트에게
-     * 조용히 이중 결제를 허용하지 않는다. 재시도는 같은 키로 해야 한다.
-     *
-     * max = 128 은 api_idempotency.idempotency_key 의 컬럼 폭이다. 같이 움직인다.
-     */
     @PostMapping
     public ResponseEntity<PlaceOrderResponse> placeOrder(
             @RequestHeader("Idempotency-Key")
