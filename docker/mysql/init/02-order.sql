@@ -9,8 +9,7 @@ CREATE TABLE orders (
                         created_at      DATETIME(6)   NOT NULL,
                         updated_at      DATETIME(6)   NOT NULL,
                         PRIMARY KEY (id),
-                        UNIQUE KEY uk_order_no (order_no),
-                        KEY idx_customer (customer_id, created_at)
+                        UNIQUE KEY uk_order_no (order_no)
 ) ENGINE=InnoDB;
 
 CREATE TABLE order_item (
@@ -41,8 +40,6 @@ CREATE TABLE saga_instance (
                                status          VARCHAR(32)   NOT NULL,
                                payload         JSON          NOT NULL,
                                step_started_at DATETIME(6)   NOT NULL,
-                               retry_count     INT           NOT NULL DEFAULT 0,
-                               last_error      TEXT          NULL,
                                created_at      DATETIME(6)   NOT NULL,
                                updated_at      DATETIME(6)   NOT NULL,
                                PRIMARY KEY (saga_id),

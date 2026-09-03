@@ -53,8 +53,6 @@ public record OrderTraceResponse(
             /** 이 단계에 머문 시간. 서버가 계산해준다. Stuck 탐지 배치의 임계값과 같은 값이다. */
             long stepElapsedSeconds,
 
-            int retryCount,
-            String lastError,
             Map<String, Object> payload
     ) {
 
@@ -65,8 +63,6 @@ public record OrderTraceResponse(
                     saga.getStatus(),
                     saga.getStepStartedAt(),
                     Duration.between(saga.getStepStartedAt(), now).toSeconds(),
-                    saga.getRetryCount(),
-                    saga.getLastError(),
                     saga.getPayload());
         }
     }

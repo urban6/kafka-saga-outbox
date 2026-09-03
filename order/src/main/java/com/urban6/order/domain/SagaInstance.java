@@ -52,12 +52,6 @@ public class SagaInstance implements Persistable<UUID> {
 	@Column(name = "step_started_at", nullable = false)
 	private Instant stepStartedAt;
 
-	@Column(name = "retry_count", nullable = false)
-	private int retryCount;
-
-	@Column(name = "last_error")
-	private String lastError;
-
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
@@ -78,7 +72,6 @@ public class SagaInstance implements Persistable<UUID> {
 		this.payload.put("customerId", customerId);
 		this.payload.put("amount", amount);
 		this.stepStartedAt = Instant.now();
-		this.retryCount = 0;
 	}
 
 	/**
