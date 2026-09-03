@@ -24,8 +24,8 @@ import java.math.BigDecimal;
  * 빈을 직접 주입해 부르면 코드는 짧아지지만 연결 타임아웃·읽기 타임아웃·소켓 끊김이
  * 재현되지 않아서 방어 코드를 검증할 수 없다.
  * <p>
- * 실제 Toss 는 결제창에서 받은 {@code paymentKey} 를 confirm 에 넘기는데, 이 프로젝트엔
- * 결제창이 없으므로 payment 서비스가 자체 발급해서 보낸다. 그 외 계약은 실제 스펙을 따른다.
+ * 계약은 실제 Toss 서버 API 스펙을 따른다. 결제창(브라우저)은 {@link MockPaymentWindowController} 가
+ * 대신하며, 거기서 발급된 {@code paymentKey} 가 여기 confirm 으로 돌아와야 승인된다.
  */
 @RestController
 @RequestMapping("/v1/payments")
