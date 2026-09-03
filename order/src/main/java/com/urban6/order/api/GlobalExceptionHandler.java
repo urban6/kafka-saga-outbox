@@ -10,6 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
 import java.time.Instant;
 import java.util.List;
@@ -30,6 +31,22 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException e) {
         List<String> details = e.getBindingResult().getFieldErrors().stream()
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .toList();
+
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.of("INVALID_REQUEST", "요청 값이 올바르지 않습니다", details));
+    }
+
+    /**
+     * 메서드 파라미터 제약 위반(헤더·경로변수). 없으면 아래 Exception 핸들러가
+     * 프레임워크의 기본 400 을 가로채 500 으로 내보낸다.
+     */
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ErrorResponse> handleParameterValidation(HandlerMethodValidationException e) {
+        List<String> details = e.getParameterValidationResults().stream()
+                .flatMap(result -> result.getResolvableErrors().stream()
+                        .map(error -> result.getMethodParameter().getParameterName()
+                                + ": " + error.getDefaultMessage()))
                 .toList();
 
         return ResponseEntity.badRequest()

@@ -8,6 +8,7 @@ import com.urban6.order.support.OrderIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.List;
 import java.util.UUID;
@@ -191,4 +192,24 @@ class PlaceOrderServiceIntegrationTest extends OrderIntegrationTest {
 		};
 	}
 
+	/**
+	 * idempotency_key 는 VARCHAR(128) 이다. insert ignore 였다면
+	 * 앞 128자가 같은 긴 키 둘이 같은 행으로 병합돼, 두 번째 주문이 첫 주문으로 재생됐다 —
+	 * 서로 다른 주문인데 하나만 실제로 처리되는 것이다.
+	 *
+	 * 실서비스에서는 컨트롤러의 @Size(max = 128) 이 먼저 400 으로 끊는다.
+	 * 이 테스트가 보는 건 그 뒤의 마지막 방어선이다 — 조용히 병합되는 대신 터진다.
+	 */
+	@Test
+	@DisplayName("128자를 넘는 멱등키는 조용히 잘려 병합되지 않고 롤백된다")
+	void rejectsOverlongIdempotencyKeyInsteadOfTruncating() {
+		String overlong = "K".repeat(128) + "A";
+
+		assertThatThrownBy(() -> placeOrderService.place(overlong, request("C-1", "P-1001", 1)))
+				.isInstanceOf(DataIntegrityViolationException.class);
+
+		assertThat(countOf("api_idempotency")).isZero();
+		assertThat(countOf("orders")).isZero();
+		assertThat(reservedOf("P-1001")).isZero();
+	}
 }

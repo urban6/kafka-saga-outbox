@@ -6,6 +6,8 @@ import com.urban6.order.api.dto.OrderTraceResponse;
 import com.urban6.order.api.dto.PlaceOrderRequest;
 import com.urban6.order.api.dto.PlaceOrderResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,11 +31,14 @@ public class OrderController {
 
     /**
      * Idempotency-Key 는 필수다. 돈이 빠지는 요청이라 헤더를 빠뜨린 클라이언트에게
-     * 조용히 이중 결제를 허용하지 않는다. 재시도할 때는 같은 키를 다시 보내야 한다.
+     * 조용히 이중 결제를 허용하지 않는다. 재시도는 같은 키로 해야 한다.
+     *
+     * max = 128 은 api_idempotency.idempotency_key 의 컬럼 폭이다. 같이 움직인다.
      */
     @PostMapping
     public ResponseEntity<PlaceOrderResponse> placeOrder(
-            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @RequestHeader("Idempotency-Key")
+            @NotBlank @Size(max = 128) String idempotencyKey,
             @Valid @RequestBody PlaceOrderRequest request) {
         PlaceOrderResponse response = placeOrderService.place(idempotencyKey, request);
         return ResponseEntity
