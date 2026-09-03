@@ -19,8 +19,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.net.URI;
-
 @RestController
 @RequestMapping("/api/orders")
 @RequiredArgsConstructor
@@ -41,10 +39,7 @@ public class OrderController {
             @NotBlank @Size(max = 128) String idempotencyKey,
             @Valid @RequestBody PlaceOrderRequest request) {
         PlaceOrderResponse response = placeOrderService.place(idempotencyKey, request);
-        return ResponseEntity
-                .status(HttpStatus.ACCEPTED)
-                .location(URI.create("/api/orders/" + response.orderNo()))
-                .body(response);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
     @GetMapping("/{orderNo}")

@@ -101,7 +101,7 @@ public class PlaceOrderService {
      * 이미 처리한 키다. 새 주문을 만들지 않고 같은 주문을 다시 돌려준다.
      *
      * 최초 응답을 통째로 저장해두지 않는 이유는, 이 API 의 응답이 어차피 폴링으로 갱신되는 스냅샷이라
-     * 지금 상태를 담아주는 편이 더 쓸모 있어서다. orderNo 와 Location 은 그대로다.
+     * 지금 상태를 담아주는 편이 더 쓸모 있어서다. 클라이언트가 붙잡고 있는 건 orderNo 이고, 그건 그대로다.
      */
     private PlaceOrderResponse replay(String idempotencyKey, PlaceOrderRequest request) {
         ApiIdempotencyStore.Claimed claimed = apiIdempotencyStore.find(idempotencyKey)
