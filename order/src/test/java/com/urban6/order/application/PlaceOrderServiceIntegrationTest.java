@@ -1,7 +1,7 @@
 package com.urban6.order.application;
 
-import com.urban6.order.api.dto.PlaceOrderRequest;
 import com.urban6.order.api.dto.PlaceOrderResponse;
+import com.urban6.order.application.PlaceOrderCommand;
 import com.urban6.order.application.exception.IdempotencyConflictException;
 import com.urban6.order.domain.OrderStatus;
 import com.urban6.order.domain.exception.OutOfStockException;
@@ -35,8 +35,8 @@ class PlaceOrderServiceIntegrationTest extends OrderIntegrationTest {
 	@Autowired
 	private PlaceOrderService placeOrderService;
 
-	private static PlaceOrderRequest request(String customerId, String productId, int quantity) {
-		return new PlaceOrderRequest(customerId, List.of(new PlaceOrderRequest.Item(productId, quantity)));
+	private static PlaceOrderCommand request(String customerId, String productId, int quantity) {
+		return new PlaceOrderCommand(customerId, List.of(new PlaceOrderCommand.Item(productId, quantity)));
 	}
 
 	private static String newKey() {
@@ -106,9 +106,9 @@ class PlaceOrderServiceIntegrationTest extends OrderIntegrationTest {
 	void rollsBackEarlierLineWhenLaterLineFails() {
 		// 앞 라인은 통과하고 뒷 라인에서 터진다. 재고가 서비스 밖에 있었다면
 		// 앞 라인 예약이 그대로 커밋됐을 상황이다 — order 로 흡수했으므로 그냥 롤백하면 된다.
-		PlaceOrderRequest mixed = new PlaceOrderRequest("C-1", List.of(
-				new PlaceOrderRequest.Item("P-1001", 1),
-				new PlaceOrderRequest.Item("P-1003", 99)));
+		PlaceOrderCommand mixed = new PlaceOrderCommand("C-1", List.of(
+				new PlaceOrderCommand.Item("P-1001", 1),
+				new PlaceOrderCommand.Item("P-1003", 99)));
 
 		assertThatThrownBy(() -> placeOrderService.place(newKey(), mixed))
 				.isInstanceOf(OutOfStockException.class);
@@ -121,12 +121,12 @@ class PlaceOrderServiceIntegrationTest extends OrderIntegrationTest {
 	@Test
 	@DisplayName("검증을 우회한 중복 라인은 조용히 합쳐지지 않고 터진다")
 	void throwsInsteadOfMergingDuplicateLines() {
-		// PlaceOrderRequest 의 제약이 막는 입력이지만, 서비스를 직접 부르면 그 층을 지나친다.
+		// PlaceOrderCommand 의 제약이 막는 입력이지만, 서비스를 직접 부르면 그 층을 지나친다.
 		// 가드가 없으면 여기서 조용히 5개로 합쳐지고 order_item 이 상품당 한 행이라는 전제가
 		// 깨진 채 커밋된다. 그 뒤엔 확정 수량이 예약 수량과 어긋나 재고가 샌다.
-		PlaceOrderRequest duplicated = new PlaceOrderRequest("C-1", List.of(
-				new PlaceOrderRequest.Item("P-1001", 2),
-				new PlaceOrderRequest.Item("P-1001", 3)));
+		PlaceOrderCommand duplicated = new PlaceOrderCommand("C-1", List.of(
+				new PlaceOrderCommand.Item("P-1001", 2),
+				new PlaceOrderCommand.Item("P-1001", 3)));
 
 		assertThatThrownBy(() -> placeOrderService.place(newKey(), duplicated))
 				.isInstanceOf(IllegalStateException.class)
@@ -177,12 +177,12 @@ class PlaceOrderServiceIntegrationTest extends OrderIntegrationTest {
 	@DisplayName("상품 순서가 엇갈린 동시 주문이 데드락 없이 모두 성공한다")
 	void survivesCrossOrderedConcurrentReservations() throws Exception {
 		int rounds = 20;
-		PlaceOrderRequest forward = new PlaceOrderRequest("C-1", List.of(
-				new PlaceOrderRequest.Item("P-1001", 1),
-				new PlaceOrderRequest.Item("P-1002", 1)));
-		PlaceOrderRequest backward = new PlaceOrderRequest("C-2", List.of(
-				new PlaceOrderRequest.Item("P-1002", 1),
-				new PlaceOrderRequest.Item("P-1001", 1)));
+		PlaceOrderCommand forward = new PlaceOrderCommand("C-1", List.of(
+				new PlaceOrderCommand.Item("P-1001", 1),
+				new PlaceOrderCommand.Item("P-1002", 1)));
+		PlaceOrderCommand backward = new PlaceOrderCommand("C-2", List.of(
+				new PlaceOrderCommand.Item("P-1002", 1),
+				new PlaceOrderCommand.Item("P-1001", 1)));
 
 		ExecutorService pool = Executors.newFixedThreadPool(2);
 		try {
@@ -205,7 +205,7 @@ class PlaceOrderServiceIntegrationTest extends OrderIntegrationTest {
 		assertThat(reservedOf("P-1002")).isEqualTo(rounds * 2);
 	}
 
-	private Callable<Void> placing(CyclicBarrier gate, PlaceOrderRequest request) {
+	private Callable<Void> placing(CyclicBarrier gate, PlaceOrderCommand request) {
 		return () -> {
 			gate.await(15, TimeUnit.SECONDS);
 			placeOrderService.place(newKey(), request);

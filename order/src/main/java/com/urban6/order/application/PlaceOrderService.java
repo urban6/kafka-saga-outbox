@@ -1,6 +1,5 @@
 package com.urban6.order.application;
 
-import com.urban6.order.api.dto.PlaceOrderRequest;
 import com.urban6.order.api.dto.PlaceOrderResponse;
 import com.urban6.order.application.exception.IdempotencyConflictException;
 import com.urban6.order.domain.Order;
@@ -51,18 +50,18 @@ public class PlaceOrderService {
      * 한 트랜잭션으로 처리한다. 같은 Idempotency-Key 가 다시 오면 먼저 만든 주문을 돌려준다.
      */
     @Transactional
-    public PlaceOrderResponse place(String idempotencyKey, PlaceOrderRequest request) {
+    public PlaceOrderResponse place(String idempotencyKey, PlaceOrderCommand command) {
         // 랜덤 접미사라 채번 없이 만들 수 있고, 그래서 멱등 선점보다 먼저 만들어 둘 수 있다.
         String orderNo = OrderNoGenerator.generate();
-        if (!apiIdempotencyStore.claim(idempotencyKey, requestHash(request), orderNo)) {
-            return replay(idempotencyKey, request);
+        if (!apiIdempotencyStore.claim(idempotencyKey, requestHash(command), orderNo)) {
+            return replay(idempotencyKey, command);
         }
 
-        SortedMap<String, Integer> quantityByProduct = quantitiesByProduct(request);
+        SortedMap<String, Integer> quantityByProduct = quantitiesByProduct(command);
         Map<String, Product> products = loadProducts(quantityByProduct.keySet());
 
-        Order order = Order.create(orderNo, request.customerId());
-        for (PlaceOrderRequest.Item item : request.items()) {
+        Order order = Order.create(orderNo, command.customerId());
+        for (PlaceOrderCommand.Item item : command.items()) {
             order.addItem(item.productId(), item.quantity(), products.get(item.productId()).getPrice());
         }
 
@@ -71,17 +70,17 @@ public class PlaceOrderService {
 
         // 커맨드를 적재하기 전에 "무엇을 기다리는지"를 먼저 남긴다.
         SagaInstance saga = sagaInstanceRepository.save(
-                SagaInstance.start(orderNo, request.customerId(), order.getTotalAmount()));
+                SagaInstance.start(orderNo, command.customerId(), order.getTotalAmount()));
 
         // 카드 정보는 싣지 않는다. order 는 고객만 알고, 빌링키는 payment 가 customerId 로 찾는다.
         outboxWriter.append("Order", EventEnvelope.of(
                 EventType.APPROVE_PAYMENT,
                 orderNo,
-                new ApprovePaymentCommand(orderNo, request.customerId(), order.getTotalAmount())
+                new ApprovePaymentCommand(orderNo, command.customerId(), order.getTotalAmount())
         ));
 
         log.info("order placed, payment requested. orderNo={} customerId={} totalAmount={} sagaId={}",
-                orderNo, request.customerId(), order.getTotalAmount(), saga.getSagaId());
+                orderNo, command.customerId(), order.getTotalAmount(), saga.getSagaId());
         return new PlaceOrderResponse(orderNo, order.getStatus(), order.getTotalAmount());
     }
 
@@ -89,12 +88,12 @@ public class PlaceOrderService {
      * 이미 처리한 키다. 새 주문을 만들지 않고 같은 주문의 현재 상태를 돌려준다.
      * 최초 응답을 저장해두지 않는 건 어차피 폴링으로 갱신되는 스냅샷이기 때문이다.
      */
-    private PlaceOrderResponse replay(String idempotencyKey, PlaceOrderRequest request) {
+    private PlaceOrderResponse replay(String idempotencyKey, PlaceOrderCommand command) {
         ApiIdempotencyStore.Claimed claimed = apiIdempotencyStore.find(idempotencyKey)
                 // claim 이 실패했으면 행이 있다. 없다면 그 사이 정리 배치가 지운 것이므로 재시도가 맞다.
                 .orElseThrow(() -> new IllegalStateException("idempotency record vanished: " + idempotencyKey));
 
-        if (!claimed.requestHash().equals(requestHash(request))) {
+        if (!claimed.requestHash().equals(requestHash(command))) {
             throw new IdempotencyConflictException(idempotencyKey);
         }
 
@@ -110,10 +109,10 @@ public class PlaceOrderService {
      * 같은 키에 다른 주문이 실려 오는 걸 잡기 위한 요청 지문.
      * record 는 선언 순서대로 직렬화되므로 같은 요청이면 같은 문자열이 나온다.
      */
-    private String requestHash(PlaceOrderRequest request) {
+    private String requestHash(PlaceOrderCommand command) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest(objectMapper.writeValueAsString(request).getBytes(StandardCharsets.UTF_8));
+                    .digest(objectMapper.writeValueAsString(command).getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(digest);
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 not available", e);
@@ -126,10 +125,10 @@ public class PlaceOrderService {
      * TreeMap 의 정렬이 곧 재고 락 획득 순서다. 확정·해제(Order.quantitiesByProduct())도
      * 같은 정렬이어야 하고, SortedMap 으로 좁힌 건 그걸 컴파일러가 지키게 하려는 것이다.
      */
-    private SortedMap<String, Integer> quantitiesByProduct(PlaceOrderRequest request) {
-        return request.items().stream().collect(Collectors.toMap(
-                PlaceOrderRequest.Item::productId,
-                PlaceOrderRequest.Item::quantity,
+    private SortedMap<String, Integer> quantitiesByProduct(PlaceOrderCommand command) {
+        return command.items().stream().collect(Collectors.toMap(
+                PlaceOrderCommand.Item::productId,
+                PlaceOrderCommand.Item::quantity,
                 (first, second) -> {
                     throw new IllegalStateException("duplicate productId passed validation");
                 },

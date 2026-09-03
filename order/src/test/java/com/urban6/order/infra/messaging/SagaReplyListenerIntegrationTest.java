@@ -1,6 +1,6 @@
 package com.urban6.order.infra.messaging;
 
-import com.urban6.order.api.dto.PlaceOrderRequest;
+import com.urban6.order.application.PlaceOrderCommand;
 import com.urban6.order.application.PlaceOrderService;
 import com.urban6.order.support.OrderKafkaIntegrationTest;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -34,7 +34,7 @@ class SagaReplyListenerIntegrationTest extends OrderKafkaIntegrationTest {
 	/** 결제 승인을 기다리는 주문 하나. 재고는 예약된 상태다. */
 	private String placedOrder(int quantity) {
 		return placeOrderService.place(UUID.randomUUID().toString(),
-				new PlaceOrderRequest("C-1", List.of(new PlaceOrderRequest.Item("P-1001", quantity))))
+				new PlaceOrderCommand("C-1", List.of(new PlaceOrderCommand.Item("P-1001", quantity))))
 				.orderNo();
 	}
 

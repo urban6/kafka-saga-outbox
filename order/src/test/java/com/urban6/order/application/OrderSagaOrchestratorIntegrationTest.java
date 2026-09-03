@@ -1,7 +1,7 @@
 package com.urban6.order.application;
 
-import com.urban6.order.api.dto.PlaceOrderRequest;
 import com.urban6.order.api.dto.PlaceOrderResponse;
+import com.urban6.order.application.PlaceOrderCommand;
 import com.urban6.order.infra.messaging.EventType;
 import com.urban6.order.infra.messaging.InboundEnvelope;
 import com.urban6.order.support.OrderIntegrationTest;
@@ -39,7 +39,7 @@ class OrderSagaOrchestratorIntegrationTest extends OrderIntegrationTest {
 	/** 결제 승인을 기다리는 주문 하나를 만든다. 재고는 예약된 상태다. */
 	private String placedOrder(String productId, int quantity) {
 		PlaceOrderResponse response = placeOrderService.place(UUID.randomUUID().toString(),
-				new PlaceOrderRequest("C-1", List.of(new PlaceOrderRequest.Item(productId, quantity))));
+				new PlaceOrderCommand("C-1", List.of(new PlaceOrderCommand.Item(productId, quantity))));
 		return response.orderNo();
 	}
 
