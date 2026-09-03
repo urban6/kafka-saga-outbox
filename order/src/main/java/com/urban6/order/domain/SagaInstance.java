@@ -8,6 +8,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.springframework.data.domain.Persistable;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -87,26 +88,28 @@ public class SagaInstance implements Persistable<UUID> {
 	@Transient
 	private boolean isNew = true;
 
-	private SagaInstance(String orderNo, String paymentKey) {
+	private SagaInstance(String orderNo, String customerId, BigDecimal amount) {
 		this.sagaId = UUID.randomUUID();
 		this.orderNo = orderNo;
 		this.sagaType = ORDER_SAGA;
 		this.currentStep = SagaStep.APPROVE_PAYMENT;
 		this.status = SagaStatus.STARTED;
 		this.payload = new LinkedHashMap<>();
-		this.payload.put("paymentKey", paymentKey);
+		this.payload.put("customerId", customerId);
+		this.payload.put("amount", amount);
 		this.stepStartedAt = Instant.now();
 		this.retryCount = 0;
 	}
 
 	/**
-	 * confirm 요청 트랜잭션에서 호출한다. 첫 단계는 언제나 결제 승인이다.
+	 * 주문 접수 트랜잭션에서 호출한다. 첫 단계는 언제나 결제 승인이다.
 	 * <p>
-	 * {@code paymentKey} 를 payload 에 처음부터 남긴다. 원격 보상({@code CANCEL_PAYMENT})이 필요해지면
-	 * 취소할 결제를 이 키로 가리켜야 하는데, 재시작 후에는 여기 남은 것 말고는 알 길이 없다.
+	 * payload 에는 커맨드를 다시 만들 수 있는 것({@code customerId}, {@code amount})을 남긴다.
+	 * 재시작 후 재발행이든 보상이든 여기 남은 것으로 해야 한다. {@code paymentKey} 는 시작 시점엔 없다 —
+	 * 원격 보상({@code CANCEL_PAYMENT})은 {@code orderNo} 로 보내고 payment 가 자기 키를 찾는 쪽이 맞다.
 	 */
-	public static SagaInstance start(String orderNo, String paymentKey) {
-		return new SagaInstance(orderNo, paymentKey);
+	public static SagaInstance start(String orderNo, String customerId, BigDecimal amount) {
+		return new SagaInstance(orderNo, customerId, amount);
 	}
 
 	/** 방어선 3겹째. 지금 기다리는 단계의 회신이 아니면 무시한다. */

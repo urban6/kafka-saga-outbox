@@ -1,16 +1,15 @@
 package com.urban6.order.domain;
 
+/**
+ * 주문 상태. 셋뿐이다.
+ * <p>
+ * 주문 접수가 곧 결제 요청이라 "접수됨" 과 "결제 요청됨" 을 구분할 순간이 없고,
+ * 회신 처리가 트랜잭션 하나라 {@code PENDING} 에서 곧장 {@code COMPLETED} 또는 {@code CANCELED} 로 간다.
+ * 중간 상태(승인 수신, 보상 중, 보상 실패)는 회신을 기다리는 주체인 {@link SagaStatus} 쪽 개념이다 —
+ * 원격 보상이 생겨도 주문은 그동안 {@code PENDING} 으로 있으면 된다.
+ */
 public enum OrderStatus {
-
-    PENDING,              // 주문서 생성 + 재고 예약. 사용자가 결제창에서 인증 중. 사가 없음
-    PAYMENT_REQUESTED,    // confirm 요청 접수. 사가 시작, 결제 승인 커맨드가 outbox 에 실린 상태
-    PAYMENT_APPROVED,     // 결제 승인 회신 수신
-    COMPLETED,            // 재고 확정까지 끝난 주문 완료
-    COMPENSATING,         // 보상 진행중 (재고 해제)
-    CANCELED,             // 주문 취소됨
-    COMPENSATION_FAILED;  // 보상 실패. 수동 개입 대상
-
-    public boolean isTerminated() {
-        return this == COMPLETED || this == CANCELED || this == COMPENSATION_FAILED;
-    }
+    PENDING,      // 접수 + 재고 예약 + 결제 승인 커맨드 outbox 적재. 회신 대기
+    COMPLETED,    // 결제 승인 → 재고 확정
+    CANCELED      // 결제 거절 → 재고 해제
 }
