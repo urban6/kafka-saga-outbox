@@ -7,6 +7,7 @@ import com.urban6.order.domain.OrderNoGenerator;
 import com.urban6.order.domain.Product;
 import com.urban6.order.domain.SagaInstance;
 import com.urban6.order.domain.exception.OutOfStockException;
+import com.urban6.order.domain.exception.UnknownProductException;
 import com.urban6.order.infra.messaging.ApprovePaymentCommand;
 import com.urban6.order.infra.messaging.EventEnvelope;
 import com.urban6.order.infra.messaging.EventType;
@@ -146,7 +147,7 @@ public class PlaceOrderService {
 
         for (String productId : productIds) {
             if (!products.containsKey(productId)) {
-                throw new IllegalArgumentException("unknown product: " + productId);
+                throw new UnknownProductException(productId);
             }
         }
         return products;

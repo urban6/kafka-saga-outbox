@@ -3,6 +3,7 @@ package com.urban6.order.api;
 import com.urban6.order.api.dto.ErrorResponse;
 import com.urban6.order.application.exception.IdempotencyConflictException;
 import com.urban6.order.domain.exception.OutOfStockException;
+import com.urban6.order.domain.exception.UnknownProductException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -61,10 +62,20 @@ public class GlobalExceptionHandler {
                         "같은 Idempotency-Key 로 다른 주문을 보낼 수 없습니다", List.of(e.getIdempotencyKey())));
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException e) {
+    /**
+     * 없는 상품. 요청 형식은 멀쩡하고 값이 실재하지 않는 것이라 400 이다.
+     *
+     * IllegalArgumentException 을 통째로 받는 핸들러를 두지 않는다 — 그러면
+     * Order 의 불변조건 가드(quantity/unitPrice)까지 400 으로 내려가고 예외 메시지가 응답에 실린다.
+     * 그 둘은 도달하면 서버 버그라 500 이 맞고, 그건 마지막 핸들러가 이미 한다.
+     */
+    @ExceptionHandler(UnknownProductException.class)
+    public ResponseEntity<ErrorResponse> handleUnknownProduct(UnknownProductException e) {
+        log.warn("order rejected. {}", e.getMessage());
+
         return ResponseEntity.badRequest()
-                .body(ErrorResponse.of("INVALID_ARGUMENT", e.getMessage(), List.of()));
+                .body(ErrorResponse.of("UNKNOWN_PRODUCT", "존재하지 않는 상품입니다",
+                        List.of(e.getProductId())));
     }
 
     @ExceptionHandler(OutOfStockException.class)
