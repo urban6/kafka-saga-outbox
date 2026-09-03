@@ -118,6 +118,26 @@ class PlaceOrderServiceIntegrationTest extends OrderIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("검증을 우회한 중복 라인은 조용히 합쳐지지 않고 터진다")
+	void throwsInsteadOfMergingDuplicateLines() {
+		// PlaceOrderRequest 의 제약이 막는 입력이지만, 서비스를 직접 부르면 그 층을 지나친다.
+		// 가드가 없으면 여기서 조용히 5개로 합쳐지고 order_item 이 상품당 한 행이라는 전제가
+		// 깨진 채 커밋된다. 그 뒤엔 확정 수량이 예약 수량과 어긋나 재고가 샌다.
+		PlaceOrderRequest duplicated = new PlaceOrderRequest("C-1", List.of(
+				new PlaceOrderRequest.Item("P-1001", 2),
+				new PlaceOrderRequest.Item("P-1001", 3)));
+
+		assertThatThrownBy(() -> placeOrderService.place(newKey(), duplicated))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("duplicate productId");
+
+		// 멱등 선점은 이 예외보다 먼저 INSERT 된다. 함께 롤백돼야 같은 키로 다시 걸 수 있다.
+		assertThat(countOf("orders")).isZero();
+		assertThat(countOf("api_idempotency")).isZero();
+		assertThat(reservedOf("P-1001")).isZero();
+	}
+
+	@Test
 	@DisplayName("같은 키로 다시 오면 새 주문을 만들지 않고 같은 주문을 돌려준다")
 	void replaysSameOrderForSameKey() {
 		String key = newKey();

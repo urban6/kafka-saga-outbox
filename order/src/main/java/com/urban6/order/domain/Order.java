@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
@@ -70,19 +70,23 @@ public class Order {
     }
 
     /**
-     * 상품별 수량. 같은 상품이 여러 라인으로 들어왔으면 합산한다.
+     * 상품별 수량. 주문 접수에서 중복 라인을 막았으므로 상품당 한 행이다.
      *
-     * 예약할 때 합쳐서 잡았으므로 확정·해제도 합쳐서 해야 대칭이 맞는다.
-     * 라인마다 따로 돌리면 UPDATE 횟수만 늘고 같은 행에 락을 두 번 건다.
+     * 순서가 예약과 같아야 한다(TreeMap). 예약과 확정·해제는 다른 트랜잭션이라
+     * 락 순서가 어긋나면 그 둘 사이에 데드락이 난다. 반환 타입을 SortedMap 으로
+     * 좁힌 건 그 정렬을 주석이 아니라 컴파일러가 지키게 하려는 것이다.
      *
-     * 수량뿐 아니라 순서도 예약과 같아야 한다(TreeMap). 예약과 확정·해제는 다른
-     * 트랜잭션이라 락 순서가 어긋나면 그 둘 사이에 데드락이 난다.
+     * 병합 함수는 도달하지 않지만 던진다. uk_order_product 가 뚫렸는데 조용히
+     * 덮어쓰면 예약한 수량과 확정하는 수량이 어긋나 재고가 샌다.
      */
-    public Map<String, Integer> quantitiesByProduct() {
-        return items.stream().collect(Collectors.groupingBy(
+    public SortedMap<String, Integer> quantitiesByProduct() {
+        return items.stream().collect(Collectors.toMap(
                 OrderItem::getProductId,
-                TreeMap::new,
-                Collectors.summingInt(OrderItem::getQuantity)
+                OrderItem::getQuantity,
+                (first, second) -> {
+                    throw new IllegalStateException("duplicate productId in order_item");
+                },
+                TreeMap::new
         ));
     }
 

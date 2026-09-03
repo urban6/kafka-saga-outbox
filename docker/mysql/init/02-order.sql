@@ -20,7 +20,7 @@ CREATE TABLE order_item (
                             quantity        INT           NOT NULL,
                             unit_price      DECIMAL(19,4) NOT NULL,
                             PRIMARY KEY (id),
-                            KEY idx_order (order_id)
+                            UNIQUE KEY uk_order_product (order_id, product_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE product (
