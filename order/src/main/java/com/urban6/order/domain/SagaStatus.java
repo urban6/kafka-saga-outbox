@@ -9,14 +9,19 @@ package com.urban6.order.domain;
  */
 public enum SagaStatus {
 
-	STARTED,              // 원격 단계 회신 대기중
-	COMPENSATING,         // 원격 보상(CANCEL_PAYMENT) 회신 대기중
-	COMPLETED,            // 정상 종료
-	CANCELED,             // 보상까지 끝나고 취소 종료
-	COMPENSATION_FAILED;  // 보상 실패. 수동 개입 대상
+	STARTED,    // 원격 단계 회신 대기중
+	COMPLETED,  // 정상 종료
+	CANCELED;   // 보상까지 끝나고 취소 종료
 
-	/** 방어선 2겹째. 종료된 사가에 늦게 도착한 회신은 여기서 걸러진다. */
+	/**
+	 * 방어선 2겹째. 종료된 사가에 늦게 도착한 회신은 여기서 걸러진다.
+	 * <p>
+	 * <b>진행 중은 {@code STARTED} 하나뿐</b>이라 여집합으로 봐도 된다. 보상 상태를 두지 않은 이유는
+	 * 보상이 재고 해제와 주문 취소뿐이고 둘 다 로컬이라 <b>같은 트랜잭션에서 끝나기</b> 때문이다 —
+	 * 중간 상태를 DB 에 써봐야 그 행을 읽을 수 있는 트랜잭션이 존재하지 않는다.
+	 * 원격 보상이 생기면 그때 회신을 기다리는 상태가 실제로 관측 가능해지므로, 그때 추가한다.
+	 */
 	public boolean isTerminated() {
-		return this == COMPLETED || this == CANCELED || this == COMPENSATION_FAILED;
+		return this == COMPLETED || this == CANCELED;
 	}
 }

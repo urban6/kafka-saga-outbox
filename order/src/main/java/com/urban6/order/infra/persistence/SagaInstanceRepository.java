@@ -42,8 +42,8 @@ public interface SagaInstanceRepository extends JpaRepository<SagaInstance, UUID
 	 * 가장 짧은 임계값으로 넉넉히 뽑고 나머지는 메모리에서 거른다.
 	 * <p>
 	 * {@code statuses} 는 <b>비종료 상태 전부</b>({@code isTerminated()} 의 여집합)를 받는다.
-	 * 나중에 원격 보상이 붙어 {@code COMPENSATING} 이 실제로 쓰일 때 여기에 추가하는 걸 잊으면,
-	 * 보상이 멈췄는데 아무도 모르는 상태가 된다.
+	 * 지금은 {@code STARTED} 하나지만 컬렉션으로 받는다 — 상태가 늘었을 때 여기에 추가하는 걸 잊으면
+	 * 사가가 멈췄는데 아무도 모르는 상태가 된다.
 	 * <p>
 	 * {@code idx_stuck (status, step_started_at)} 을 탄다. {@code IN} 이라 상태값마다 레인지 스캔이
 	 * 나뉘고 정렬이 한 번 더 붙지만, {@code Pageable} 로 잘라 읽으므로 대상이 커져도 비용이 고정된다.

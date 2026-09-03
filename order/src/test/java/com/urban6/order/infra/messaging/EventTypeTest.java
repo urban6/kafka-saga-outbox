@@ -46,12 +46,19 @@ class EventTypeTest {
 	void onlyReplyTopicTypesAreSagaReplies() {
 		assertThat(EventType.PAYMENT_APPROVED.isSagaReply()).isTrue();
 		assertThat(EventType.PAYMENT_REJECTED.isSagaReply()).isTrue();
-		assertThat(EventType.PAYMENT_CANCELED.isSagaReply()).isTrue();
 
 		assertThat(EventType.APPROVE_PAYMENT.isSagaReply()).isFalse();
-		assertThat(EventType.CANCEL_PAYMENT.isSagaReply()).isFalse();
 		assertThat(EventType.ORDER_COMPLETED.isSagaReply()).isFalse();
 		assertThat(EventType.ORDER_CANCELED.isSagaReply()).isFalse();
+	}
+
+	@Test
+	@DisplayName("원격 보상 어휘는 없다 — 값만 두면 없는 기능이 있는 것처럼 읽힌다")
+	void hasNoRemoteCompensationVocabulary() {
+		// pivot 이 PG 청구 성공이라 그 이후는 재시도로 밀고, 그 이전 실패는 로컬 보상으로 끝난다.
+		// 원격 보상 커맨드를 보낼 자리가 없으므로 와이어 계약에도 두지 않는다.
+		assertThat(EventType.fromWire("CANCEL_PAYMENT")).isEmpty();
+		assertThat(EventType.fromWire("PAYMENT_CANCELED")).isEmpty();
 	}
 
 	@Test

@@ -37,10 +37,10 @@ class StuckSagaPropertiesTest {
 	@Test
 	@DisplayName("설정되지 않은 단계는 기본 임계값으로 떨어진다")
 	void thresholdFor_unconfiguredStep() {
-		StuckSagaProperties properties =
-				propertiesWith(Map.of(SagaStep.APPROVE_PAYMENT, Duration.ofSeconds(60)));
+		// SagaStep 이 하나뿐이라 "다른 단계" 를 만들 수 없다. 빈 설정으로 같은 경로를 탄다.
+		StuckSagaProperties properties = propertiesWith(Map.of());
 
-		assertThat(properties.thresholdFor(SagaStep.CANCEL_PAYMENT)).isEqualTo(DEFAULT_THRESHOLD);
+		assertThat(properties.thresholdFor(SagaStep.APPROVE_PAYMENT)).isEqualTo(DEFAULT_THRESHOLD);
 	}
 
 	@Test
@@ -73,13 +73,4 @@ class StuckSagaPropertiesTest {
 		assertThat(properties.minThreshold()).isEqualTo(DEFAULT_THRESHOLD);
 	}
 
-	@Test
-	@DisplayName("minThreshold 는 여러 단계 중 가장 짧은 값을 고른다")
-	void minThreshold_picksShortestAmongSteps() {
-		StuckSagaProperties properties = propertiesWith(Map.of(
-				SagaStep.APPROVE_PAYMENT, Duration.ofSeconds(90),
-				SagaStep.CANCEL_PAYMENT, Duration.ofSeconds(30)));
-
-		assertThat(properties.minThreshold()).isEqualTo(Duration.ofSeconds(30));
-	}
 }

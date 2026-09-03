@@ -31,8 +31,9 @@ public class PaymentCommandListener {
 
 	private void handle(CommandType commandType, InboundEnvelope envelope) {
 		if (commandType != CommandType.APPROVE_PAYMENT) {
-			// CANCEL_PAYMENT 는 아직 구현하지 않았다. 같은 토픽으로 들어오므로 조용히 넘긴다.
-			log.info("command not supported yet. commandType={} orderNo={}",
+			// 지금은 도달하지 않는다(커맨드가 하나뿐). 남겨두는 건 이게 <b>불변조건</b>이라서다 —
+			// 커맨드가 하나 늘었을 때 이 분기가 없으면 그 payload 를 승인 요청으로 읽어버린다.
+			log.info("command not supported. commandType={} orderNo={}",
 					commandType, envelope.aggregateId());
 			return;
 		}

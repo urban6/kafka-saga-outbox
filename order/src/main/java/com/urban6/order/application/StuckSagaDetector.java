@@ -44,16 +44,12 @@ public class StuckSagaDetector {
 	private static final Logger log = LoggerFactory.getLogger(StuckSagaDetector.class);
 
 	/**
-	 * 스캔 대상. {@link SagaInstance#isTerminated()} 의 여집합이다.
+	 * 스캔 대상. {@link SagaInstance#isTerminated()} 의 <b>여집합</b>이고, 지금은 값이 하나다.
 	 * <p>
-	 * {@code COMPENSATING} 은 아직 아무도 쓰지 않지만 넣어둔다. 원격 보상이 붙을 때
-	 * 여기 추가하는 걸 잊는 것이 정확히 "보상이 멈췄는데 아무도 모르는" 버그다.
-	 * <p>
-	 * {@code COMPENSATION_FAILED} 는 종료 상태라 안 걸린다. 그건 정체가 아니라
-	 * 이미 포기하고 사람에게 넘긴 큐라서 성격이 다르다.
+	 * 값이 하나여도 {@code List} 로 두는 건 이게 "진행 중인 상태 전부" 라는 <b>의미</b>이기 때문이다.
+	 * 나중에 상태가 늘 때 여기 추가하는 걸 잊는 것이 정확히 "사가가 멈췄는데 아무도 모르는" 버그다.
 	 */
-	private static final List<SagaStatus> ACTIVE =
-			List.of(SagaStatus.STARTED, SagaStatus.COMPENSATING);
+	private static final List<SagaStatus> ACTIVE = List.of(SagaStatus.STARTED);
 
 	/** 로그 한 줄에 담을 order_no 최대 개수. 나머지는 메트릭으로 본다. */
 	private static final int LOG_SAMPLE = 10;

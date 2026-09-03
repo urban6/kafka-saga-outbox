@@ -40,23 +40,6 @@ class OrderSagaOrchestratorTest {
 				.isEqualTo(COMPENSATE);
 	}
 
-	@Test
-	@DisplayName("PAYMENT_CANCELED 는 아직 무시한다 — 그 커맨드를 보내는 경로가 없다")
-	void paymentCanceledIsIgnoredForNow() {
-		// 원격 보상을 구현하면 이 단언이 깨진다. 깨지는 게 맞다 —
-		// 그때 이 테스트를 고치는 행위가 곧 "알고 넣는다" 는 확인이다.
-		assertThat(OrderSagaOrchestrator.decide(SagaStep.APPROVE_PAYMENT, EventType.PAYMENT_CANCELED))
-				.isEqualTo(IGNORE);
-	}
-
-	@ParameterizedTest
-	@EnumSource(EventType.class)
-	@DisplayName("기다리는 단계가 아니면 어떤 회신이 와도 무시한다")
-	void ignoresEverythingWhenNotWaitingForPayment(EventType eventType) {
-		assertThat(OrderSagaOrchestrator.decide(SagaStep.CANCEL_PAYMENT, eventType))
-				.isEqualTo(IGNORE);
-	}
-
 	@ParameterizedTest
 	@EnumSource(value = EventType.class, names = {"PAYMENT_APPROVED", "PAYMENT_REJECTED"},
 			mode = EnumSource.Mode.EXCLUDE)
@@ -70,6 +53,7 @@ class OrderSagaOrchestratorTest {
 	@Test
 	@DisplayName("전 조합 중 무언가를 하는 건 정확히 2가지뿐이다")
 	void onlyTwoCombinationsAct() {
+		// SagaStep 이 하나뿐이라 조합 수는 EventType 수와 같다. 단계가 늘면 이 계산이 자동으로 커진다.
 		Map<Boolean, Long> byActing = Arrays.stream(SagaStep.values())
 				.flatMap(step -> Arrays.stream(EventType.values())
 						.map(type -> OrderSagaOrchestrator.decide(step, type)))

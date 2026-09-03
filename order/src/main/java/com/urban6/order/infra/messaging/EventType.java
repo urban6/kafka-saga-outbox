@@ -9,6 +9,11 @@ import java.util.stream.Stream;
 /**
  * 사가에서 오가는 메시지 종류.
  * <p>
+ * <b>원격 보상({@code CANCEL_PAYMENT}/{@code PAYMENT_CANCELED})은 없다.</b> 이 사가의 pivot 은
+ * PG 청구 성공 시점이고, 그 이후 실패는 보상이 아니라 재시도로 민다. 청구 전 실패는 로컬 보상
+ * (재고 해제 + 주문 취소)으로 끝나 원격 커맨드가 필요 없다. 값만 선언해두면 <b>없는 기능이
+ * 있는 것처럼</b> 읽히므로 두지 않는다 — 이건 와이어 계약이라 더더욱 그렇다.
+ * <p>
  * 이름(name)이 그대로 outbox.event_type / 카프카 헤더에 실리는 와이어 값이므로 상수를 함부로 바꾸지 않는다.
  * 각 타입은 발행될 토픽을 고정으로 가진다.
  * <p>
@@ -19,13 +24,10 @@ public enum EventType {
 
 	// ── Order → Payment (커맨드) ──────────────────────────
 	APPROVE_PAYMENT(Topics.PAYMENT_COMMANDS),
-	/** 결제는 승인됐는데 재고 확정이 불가능할 때만 쓰는 보상 커맨드. */
-	CANCEL_PAYMENT(Topics.PAYMENT_COMMANDS),
 
 	// ── Payment → Order (회신) ────────────────────────────
 	PAYMENT_APPROVED(Topics.ORDER_SAGA_REPLIES),
 	PAYMENT_REJECTED(Topics.ORDER_SAGA_REPLIES),
-	PAYMENT_CANCELED(Topics.ORDER_SAGA_REPLIES),
 
 	// ── Order → External (도메인 이벤트) ──────────────────
 	ORDER_COMPLETED(Topics.ORDER_EVENTS),

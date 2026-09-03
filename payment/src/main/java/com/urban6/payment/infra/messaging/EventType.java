@@ -8,9 +8,7 @@ package com.urban6.payment.infra.messaging;
 public enum EventType {
 
 	PAYMENT_APPROVED(Topics.ORDER_SAGA_REPLIES),
-	PAYMENT_REJECTED(Topics.ORDER_SAGA_REPLIES),
-	/** CANCEL_PAYMENT 보상의 회신. 발행 경로는 아직 없다. */
-	PAYMENT_CANCELED(Topics.ORDER_SAGA_REPLIES);
+	PAYMENT_REJECTED(Topics.ORDER_SAGA_REPLIES);
 
 	private final String topic;
 

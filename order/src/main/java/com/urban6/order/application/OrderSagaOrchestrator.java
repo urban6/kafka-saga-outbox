@@ -114,8 +114,9 @@ public class OrderSagaOrchestrator {
 	 * 여기가 사가 규칙의 유일한 정의이고, {@link #apply} 는 그 결정을 DB 에 옮기기만 한다.
 	 * 둘을 섞으면 "왜 이 상태가 됐는가"를 트랜잭션 코드 사이에서 찾아야 한다.
 	 * <p>
-	 * {@code PAYMENT_CANCELED}(원격 보상 회신)는 아직 IGNORE 다. 그 커맨드를 보내는 경로가
-	 * 없어서 도달할 수 없고, 없는 경로를 미리 구현하면 검증도 못 한 코드가 남는다.
+	 * 단계 검사는 {@code SagaStep} 값이 하나뿐이라 지금은 항상 통과한다. 그래도 남기는 건
+	 * <b>불변조건</b>이기 때문이다 — "회신은 지금 기다리는 단계의 것이어야 한다" 는 규칙이 사라지면,
+	 * 단계가 하나 늘었을 때 지난 단계의 늦은 회신이 그대로 통과한다.
 	 */
 	static SagaDecision decide(SagaStep currentStep, EventType eventType) {
 		if (currentStep != SagaStep.APPROVE_PAYMENT) {
@@ -136,9 +137,8 @@ public class OrderSagaOrchestrator {
 	 * 같은 승인 회신을 재발행한 경우 — 멱등 테이블로는 못 막는다).
 	 * 조건부 UPDATE 가 0건이면 누가 이미 처리한 것이니 조용히 물러난다.
 	 * <p>
-	 * {@code COMPENSATING} 을 거치지 않는 이유: 보상이 재고 해제와 주문 취소뿐이고 둘 다 로컬이라
-	 * 같은 트랜잭션에서 끝난다. 중간 상태를 DB 에 쓴들 아무도 볼 수 없다.
-	 * 그 상태는 원격 보상({@code CANCEL_PAYMENT}) 회신을 기다릴 때 쓴다.
+	 * 보상에 중간 상태를 두지 않는 이유: 재고 해제와 주문 취소뿐이고 둘 다 로컬이라 같은 트랜잭션에서
+	 * 끝난다. 중간 상태를 DB 에 쓴들 그 행을 읽을 수 있는 트랜잭션이 존재하지 않는다.
 	 */
 	private void apply(SagaInstance saga, SagaDecision decision) {
 		Instant now = Instant.now();
@@ -206,7 +206,9 @@ public class OrderSagaOrchestrator {
 	 * 재시도가 다 실패하면 사가가 {@code STARTED} 로 남아 Stuck 탐지에 걸린다.
 	 * <p>
 	 * 결제가 이미 승인된 뒤라면 되돌리는 게 아니라 될 때까지 미는 게 맞다(forward recovery).
-	 * 돈은 받았고 물건은 창고에 있다.
+	 * 돈은 받았고 물건은 창고에 있다. <b>여기서 결제를 자동으로 취소하지 않는 이유</b>가 그것이다 —
+	 * {@code confirm} 0건은 비즈니스 조건이 아니라 우리가 잡아둔 예약이 사라졌다는 뜻이고,
+	 * 데이터가 깨진 상황에 자동 환불을 걸면 더 나쁜 일이 벌어진다.
 	 */
 	private void applyStock(Order order, SagaDecision decision, Instant now) {
 		for (Map.Entry<String, Integer> entry : order.quantitiesByProduct().entrySet()) {
