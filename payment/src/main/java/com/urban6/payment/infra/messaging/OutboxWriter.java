@@ -3,11 +3,7 @@ package com.urban6.payment.infra.messaging;
 import lombok.RequiredArgsConstructor;
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * EventEnvelope 를 직렬화해 outbox 에 INSERT 한다.
- * 반드시 비즈니스 로직과 같은 트랜잭션에서 호출한다 —
- * 그래야 "결제는 확정됐는데 회신은 안 나갔다" 가 생기지 않는다.
- */
+/** 반드시 비즈니스 로직과 같은 트랜잭션에서 호출한다. */
 @RequiredArgsConstructor
 public class OutboxWriter {
 

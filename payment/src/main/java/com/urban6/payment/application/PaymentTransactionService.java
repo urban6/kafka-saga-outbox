@@ -21,10 +21,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * 결제 결과를 DB 에 확정하는 트랜잭션 경계. 멱등 선점 · 결제 확정 · 회신 적재가 한 트랜잭션이다.
- *
- * ApprovePaymentService 와 별개 빈이어야 한다 — 같은 클래스 안에서 @Transactional 메서드를
- * 부르면 프록시를 안 타서 트랜잭션이 안 걸린다.
+ * 멱등 선점 · 결제 확정 · 회신 적재를 한 트랜잭션으로 묶는다.
+ * ApprovePaymentService 와 별개 빈이어야 한다 — 자기 호출은 프록시를 안 타 트랜잭션이 안 걸린다.
  */
 @Slf4j
 @Service
@@ -35,16 +33,10 @@ public class PaymentTransactionService {
 	private final OutboxWriter outboxWriter;
 	private final IdempotencyGuard idempotencyGuard;
 
-	/** consumed_message.consumer_group 에 들어간다. 컨슈머 그룹과 반드시 같아야 하므로 같은 프로퍼티를 읽는다. */
 	@Value("${spring.kafka.consumer.group-id}")
 	private final String consumerGroup;
 
-	/**
-	 * 새 결제를 확정한다.
-	 *
-	 * @param eventId Kafka 진입이면 커맨드 식별자, HTTP 진입이면 null
-	 * @return 저장된 결제. 중복 메시지라 아무것도 하지 않았으면 null
-	 */
+	/** @return 중복 메시지라 아무것도 하지 않았으면 null. eventId 는 HTTP 진입이면 null */
 	@Transactional
 	public Payment record(String paymentId, String orderNo, BigDecimal amount,
 			PgChargeResult result, UUID eventId) {
@@ -57,18 +49,15 @@ public class PaymentTransactionService {
 			case APPROVED -> Payment.approved(paymentId, orderNo, amount, result.paymentKey());
 			case REJECTED -> Payment.rejected(paymentId, orderNo, amount,
 					result.failureCode(), result.failureMessage());
-			// 돈이 빠졌는지 모른다. 답을 미루고 행만 남긴다 — 복구 배치가 조회로 해소한다.
 			case IN_DOUBT -> Payment.inDoubt(paymentId, orderNo, amount,
 					result.failureCode(), result.failureMessage());
-			// 여기 오면 안 된다. 재시도는 DB 에 아무것도 쓰지 않고 ApprovePaymentService 가 되돌린다 —
 			// 행을 남기면 uk_order_no 때문에 다음 재시도가 영영 막힌다.
 			case RETRYABLE -> throw new IllegalStateException(
 					"retryable result must not be recorded. orderNo=" + orderNo
 							+ " code=" + result.failureCode());
 		};
 
-		// uk_order_no 위반은 잡지 않고 던진다. 제약 위반이 난 트랜잭션은 이어서 쓸 수 없고,
-		// 롤백시키면 멱등 선점도 함께 풀려 Kafka 재시도가 정상 경로로 흡수한다.
+		// uk_order_no 위반은 잡지 않는다. 롤백돼야 멱등 선점도 풀려 Kafka 재시도가 흡수한다.
 		Payment saved = paymentRepository.save(payment);
 		appendReply(saved, eventId);
 
@@ -76,10 +65,7 @@ public class PaymentTransactionService {
 		return saved;
 	}
 
-	/**
-	 * 이미 처리된 결제에 대해 회신만 다시 낸다. 앞선 회신이 유실됐을 수 있어서다.
-	 * 중복은 order 방어선이 무시하지만, 안 보내면 order 가 영원히 대기한다.
-	 */
+	/** 앞선 회신이 유실됐을 수 있어 회신만 다시 낸다. 중복은 order 방어선이 무시한다. */
 	@Transactional
 	public Payment replayReply(Payment existing, UUID eventId) {
 		if (!claim(eventId, existing.getOrderNo())) {
@@ -89,12 +75,7 @@ public class PaymentTransactionService {
 		return existing;
 	}
 
-	/**
-	 * 결과를 모르던 결제를 확정한다. 복구 배치 전용이라 record 와 둘이 다르다 —
-	 * 새 행을 만드는 게 아니라 있는 행을 옮기고, eventId 없이도 회신을 낸다.
-	 *
-	 * @return 이 호출이 확정했으면 true. 이미 누가 확정했으면 false
-	 */
+	/** in-doubt 복구 전용. @return 이미 누가 확정했으면 false */
 	@Transactional
 	public boolean settle(Payment payment, PgChargeResult result) {
 		String orderNo = payment.getOrderNo();
@@ -106,13 +87,12 @@ public class PaymentTransactionService {
 						result.failureCode(), result.failureMessage(), now);
 
 		if (moved == 0) {
-			// 조건부 UPDATE 가 막았다. 회신도 이미 그쪽이 냈으므로 여기서 또 내면 중복이다.
+			// 이미 확정한 쪽이 회신도 냈다.
 			log.info("payment already settled elsewhere. orderNo={}", orderNo);
 			return false;
 		}
 
-		// 회신은 엔티티가 아니라 PG 응답으로 만든다. 벌크 UPDATE 는 1차 캐시를 우회하므로
-		// 지금 payment 객체는 여전히 IN_PROGRESS 인 옛 값이다.
+		// 회신은 PG 응답으로 만든다. 벌크 UPDATE 가 1차 캐시를 우회해 payment 는 옛 값이다.
 		EventEnvelope<PaymentReplyPayload> envelope = result.isApproved()
 				? EventEnvelope.of(EventType.PAYMENT_APPROVED, orderNo,
 						PaymentReplyPayload.approved(orderNo, result.paymentKey()))
@@ -125,8 +105,6 @@ public class PaymentTransactionService {
 		return true;
 	}
 
-	/** eventId 가 없으면(HTTP 진입) 멱등 판정 자체가 필요 없다. */
-	// event_type 은 사후 진단에만 쓰여 틀려도 아무도 모른다. 그래서 리터럴 대신 CommandType 에 묶는다.
 	private boolean claim(UUID eventId, String orderNo) {
 		if (eventId == null) {
 			return true;
@@ -146,9 +124,7 @@ public class PaymentTransactionService {
 		String orderNo = payment.getOrderNo();
 
 		if (payment.getStatus() == PaymentStatus.IN_PROGRESS) {
-			// 결과를 모르는 동안은 회신하지 않는다. 승인 회신은 재고를 확정하고 거절 회신은 재고를 푸는데,
-			// 어느 쪽도 틀리면 되돌릴 수 없다. 침묵하면 order 는 PENDING 에 머물고
-			// 임계값을 넘는 순간 Stuck 탐지에 걸린다 — 조용히 사라지지 않는다.
+			// 틀린 회신은 되돌릴 수 없어 침묵한다. order 는 PENDING 에 남아 Stuck 탐지에 걸린다.
 			log.info("payment in doubt, reply deferred. orderNo={} failureCode={}",
 					orderNo, payment.getFailureCode());
 			return;
@@ -159,7 +135,6 @@ public class PaymentTransactionService {
 					PaymentReplyPayload.approved(orderNo, payment.getPaymentKey()));
 			case ABORTED -> EventEnvelope.of(EventType.PAYMENT_REJECTED, orderNo,
 					PaymentReplyPayload.rejected(orderNo, payment.getFailureCode(), payment.getFailureReason()));
-			// 나머지 상태는 아직 도달하지 않는다. 틀린 회신으로 사가를 잘못 미느니 침묵이 안전하다.
 			default -> null;
 		};
 

@@ -20,10 +20,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-/**
- * Toss 빌링(자동결제) API 모방. 카드 정보를 받아 키를 내는 건 실제 Toss 에도 있는
- * 서버 API 라 가짜 경로 없이 /v1 안에 둔다. 호출은 MockPgController 와 같이 실제 HTTP 다.
- */
 @RestController
 @RequestMapping("/v1/billing")
 @RequiredArgsConstructor
@@ -35,7 +31,6 @@ public class MockBillingController {
 	) {
 	}
 
-	/** Toss 응답에서 이 프로젝트가 읽는 필드만. 카드번호 전체는 절대 돌려주지 않는다. */
 	public record IssueResponse(
 			String billingKey,
 			String customerKey,
@@ -62,7 +57,7 @@ public class MockBillingController {
 		return IssueResponse.from(engine.issueBillingKey(request.customerKey(), request.cardNumber()));
 	}
 
-	/** @param idempotencyKey 이 Mock 은 orderId 로 중복을 판정하므로 헤더가 오는지 확인하는 용도다 */
+	/** @param idempotencyKey 이 Mock 은 orderId 로 중복을 판정하므로 헤더 존재 확인용이다 */
 	@PostMapping("/{billingKey}")
 	public PgPayment charge(
 			@PathVariable String billingKey,
@@ -71,7 +66,7 @@ public class MockBillingController {
 		return engine.charge(billingKey, request.customerKey(), request.orderId(), request.amount());
 	}
 
-	/** MockPgController 와 같은 이유의 로컬 핸들러. 응답 형식도 같다. */
+	/** MockPgController 와 같은 이유의 로컬 핸들러. */
 	@ExceptionHandler(PgApiException.class)
 	public ResponseEntity<MockPgController.ErrorResponse> handlePgError(PgApiException e) {
 		return ResponseEntity.status(e.getStatus())

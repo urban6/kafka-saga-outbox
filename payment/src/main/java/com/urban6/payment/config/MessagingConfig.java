@@ -9,12 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * 메시징 인프라 빈 등록.
- *
- * infra.messaging 클래스들에 @Component 를 붙이지 않은 이유는, 무엇을 쓸지를
- * 인프라가 아니라 서비스가 결정하게 두기 위해서다. payment 는 수신·발행을 다 하므로 둘 다 등록한다.
- */
+/** infra.messaging 에 @Component 를 안 붙인다 — 무엇을 쓸지는 서비스가 정한다. */
 @Configuration
 public class MessagingConfig {
 

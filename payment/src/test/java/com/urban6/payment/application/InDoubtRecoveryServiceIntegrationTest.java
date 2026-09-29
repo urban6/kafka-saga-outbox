@@ -13,13 +13,8 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * "돈이 빠졌는지 모르는" 결제를 조회로 해소하는 경로.
- *
- * 준비를 타임아웃 주입으로 하지 않는다. 그러면 Mock PG 의 지연이 끝나기를 기다려야 해서
- * 테스트가 시간에 의존한다. 대신 PG 와 우리 DB 를 따로 원하는 상태로 만든다 —
- * PG 에는 청구를 직접 넣어 DONE 을 만들고, 우리 쪽엔 IN_PROGRESS 행을 심는다.
- * in-doubt 는 결국 "두 상태가 어긋난 것" 이므로 이렇게 만드는 편이 정확하고 빠르다.
- * (타임아웃이 실제로 IN_PROGRESS 를 만드는지는 ApprovePaymentServiceIntegrationTest 가 본다)
+ * in-doubt 를 타임아웃 주입이 아니라 상태를 직접 심어 만든다(PG 엔 청구, DB 엔 IN_PROGRESS).
+ * in-doubt 는 두 상태가 어긋난 것이라 이편이 정확하고 시간에 의존하지 않는다.
  */
 class InDoubtRecoveryServiceIntegrationTest extends PaymentIntegrationTest {
 
@@ -36,7 +31,7 @@ class InDoubtRecoveryServiceIntegrationTest extends PaymentIntegrationTest {
 		return "ORD-20260903-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 	}
 
-	/** PG 에만 결제를 성사시킨다. 우리 DB 는 건드리지 않는다 — 응답이 유실된 상황과 같은 상태다. */
+	/** 응답이 유실된 상황: PG 에만 결제를 성사시킨다. */
 	private void chargeOnPgOnly(String orderNo) {
 		BillingKey billingKey = registerBillingKeyService.register(CUSTOMER_ID, "1234567812345678");
 		pg.post()
@@ -48,10 +43,7 @@ class InDoubtRecoveryServiceIntegrationTest extends PaymentIntegrationTest {
 				.toBodilessEntity();
 	}
 
-	/**
-	 * 결과를 모르는 결제 행. updated_at 을 과거로 박아 grace(기본 30초)를 통과시킨다.
-	 * 시각을 MySQL 이 계산하게 두는 이유는 애플리케이션과 DB 의 시간대 해석을 섞지 않기 위해서다.
-	 */
+	/** 시각은 MySQL 이 계산한다 — 앱과 DB 의 시간대 해석을 섞지 않는다. */
 	private void insertInDoubtRow(String orderNo, int minutesAgo) {
 		jdbcTemplate.update("""
 				insert into payment
@@ -71,13 +63,10 @@ class InDoubtRecoveryServiceIntegrationTest extends PaymentIntegrationTest {
 		inDoubtRecoveryService.recover();
 
 		assertThat(columnOf("status", orderNo)).isEqualTo("DONE");
-		// 우리가 못 받았던 그 키를 조회로 되찾아온다. 이게 없으면 나중에 취소할 결제를 특정할 수 없다.
 		assertThat(columnOf("payment_key", orderNo)).startsWith("tgen_");
-		// DONE 인 행에 failure 가 남아 있으면 컬럼 이름이 거짓말을 한다.
 		assertThat(columnOf("failure_code", orderNo)).isNull();
 		assertThat(columnOf("failure_reason", orderNo)).isNull();
 
-		// 접수 때 미뤄뒀던 회신이 이제 나간다. 안 나가면 order 는 영원히 PENDING 이다.
 		assertThat(outboxEventType(orderNo)).isEqualTo("PAYMENT_APPROVED");
 	}
 
@@ -85,14 +74,12 @@ class InDoubtRecoveryServiceIntegrationTest extends PaymentIntegrationTest {
 	@DisplayName("PG 에 기록이 없으면 미체결로 확정한다 — 돈이 안 빠진 게 확인됐다")
 	void resolvesToRejectionWhenPgHasNoRecord() {
 		String orderNo = newOrderNo();
-		// PG 에는 아무것도 넣지 않는다. 청구가 아예 안 닿은 상황이다.
 		insertInDoubtRow(orderNo, 10);
 
 		inDoubtRecoveryService.recover();
 
 		assertThat(columnOf("status", orderNo)).isEqualTo("ABORTED");
 		assertThat(columnOf("failure_code", orderNo)).isEqualTo("PG_NO_RECORD");
-		// 거절 회신이 나가야 order 가 재고를 푼다.
 		assertThat(outboxEventType(orderNo)).isEqualTo("PAYMENT_REJECTED");
 	}
 
@@ -119,7 +106,6 @@ class InDoubtRecoveryServiceIntegrationTest extends PaymentIntegrationTest {
 		inDoubtRecoveryService.recover();
 		inDoubtRecoveryService.recover();
 
-		// 이미 DONE 이라 findInDoubtBefore 에 안 걸리고, 걸렸더라도 settle 이 0건으로 물러난다.
 		assertThat(countOf("outbox")).isEqualTo(1);
 		assertThat(columnOf("status", orderNo)).isEqualTo("DONE");
 	}
@@ -135,7 +121,6 @@ class InDoubtRecoveryServiceIntegrationTest extends PaymentIntegrationTest {
 
 		inDoubtRecoveryService.recover();
 
-		// 건별 트랜잭션이라 한 건이 실패해도 다른 건의 확정이 함께 날아가지 않는다.
 		assertThat(columnOf("status", settled)).isEqualTo("DONE");
 		assertThat(columnOf("status", missing)).isEqualTo("ABORTED");
 		assertThat(countOf("outbox")).isEqualTo(2);

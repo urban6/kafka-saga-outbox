@@ -21,8 +21,7 @@ spring:
       hibernate:
         format_sql: true
         jdbc:
-          # Debezium 이 datetime 컬럼을 UTC 로 읽어 메시지 타임스탬프로 쓴다.
-          # KST 로 저장하면 메시지가 9시간 미래로 찍힌다.
+          # Debezium 이 datetime 을 UTC 로 읽는다. KST 로 저장하면 메시지가 9시간 미래로 찍힌다.
           time_zone: UTC
     open-in-view: false
 
@@ -32,53 +31,43 @@ spring:
   kafka:
     bootstrap-servers: localhost:9092
     consumer:
-      # consumed_message.consumer_group 에 그대로 들어가는 값.
-      # 바꾸면 과거 처리 이력을 못 찾아 전부 재처리된다.
+      # consumed_message.consumer_group 값. 바꾸면 과거 처리 이력을 못 찾아 전부 재처리된다.
       group-id: payment-service
-      # true 면 poll 직후 커밋되어, 처리 중 죽으면 그 메시지는 영영 사라진다.
+      # true 면 처리 중 죽은 메시지가 유실된다.
       enable-auto-commit: false
       auto-offset-reset: earliest
       max-poll-records: 50
-    # 도메인 메시지용 프로듀서는 없다 — 회신은 Outbox INSERT -> Debezium 으로 나간다.
-    # 예외는 DLT 발행 하나뿐이고 DeadLetterConfig 가 갖는다. 그건 도메인 메시지가 아니라
-    # 운영 산출물이라 함께 커밋될 트랜잭션이 애초에 없다.
 
   task:
     scheduling:
       pool:
-        # 배치가 둘(in-doubt 복구 / 정리)이다. 기본 1이면 하나가 늦을 때 다른 하나가 밀린다.
+        # 배치가 둘이다. 기본 1이면 하나가 늦을 때 다른 하나가 밀린다.
         size: 2
 
-# PG 연동. Mock 이 같은 앱(8082) 안에 있지만 실제 HTTP 로 부른다 —
-# 빈을 직접 주입하면 타임아웃·연결 끊김이 재현되지 않아 방어 코드를 검증할 수 없다.
+# Mock 이 같은 앱에 있어도 실제 HTTP 로 부른다 — 그래야 타임아웃·연결 끊김이 재현된다.
 pg:
   base-url: http://localhost:8082
   connect-timeout: 1s
   read-timeout: 3s
 
-# Mock PG 장애 주입. 청구(/v1/billing/{billingKey}) 판정 앞에서 적용된다.
-# 장애 주입은 전부 0 이면 지금과 똑같이 동작한다. 검증할 때는 rate 를 1.0 으로 둔다 — 확률로는 재현이 안 된다.
 mockpg:
-  reject-rate: 0.0    # 카드사 거절. 확정된 실패
-  error-rate: 0.0     # 500. 선점을 되돌리므로 재시도하면 성공한다
-  delay-rate: 0.0     # 아래 delay 를 넣을 비율
+  reject-rate: 0.0
+  error-rate: 0.0
+  delay-rate: 0.0
   delay: 0s           # pg.read-timeout(3s) 보다 크면 클라이언트는 타임아웃, PG 는 승인 = in-doubt
 
-# in-doubt 복구. "돈이 빠졌는지 모르는" 결제를 조회 API 로 해소한다.
 payment:
   in-doubt:
     scan-interval: 30s
-    # 갓 만들어진 행은 건너뛴다. PG 응답이 조금 늦었을 뿐일 수 있다.
     grace: 30s
     scan-limit: 50
-    # 이만큼 조회해도 안 풀리면 사람이 봐야 한다. 돈이 걸린 미결이다.
     escalate-after: 5m
 
-# 정리 배치. 결제 이력(payment)은 지우지 않는다 — 운영 데이터가 아니라 기록이다.
+# payment 테이블은 지우지 않는다 — 운영 데이터가 아니라 기록이다.
 retention:
   scan-interval: 1h
   outbox: 7d
-  # Kafka retention(기본 7d) 보다 길어야 한다. 짧으면 재전달된 메시지를 중복 처리 = 이중 청구다.
+  # Kafka retention 보다 길어야 한다. 짧으면 재전달을 신규로 착각해 이중 청구다.
   consumed-message: 14d
   batch-size: 500
   max-batches-per-run: 20

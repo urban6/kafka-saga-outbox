@@ -6,11 +6,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/**
- * payment 가 받아들이는 커맨드. 값이 하나뿐인 건 원격 단계가 결제 청구 하나여서다.
- * 그래도 fromWire 를 두는 건 모르는 값 때문이다 — valueOf 였다면 order 가 커맨드를
- * 추가하는 순간 그 메시지가 재시도를 소진할 때까지 같은 파티션의 뒷 메시지가 밀린다.
- */
+/** valueOf 대신 fromWire 를 쓴다 — 모르는 커맨드가 재시도를 소진할 때까지 파티션을 밀지 않게. */
 public enum CommandType {
 
 	APPROVE_PAYMENT;

@@ -13,18 +13,8 @@ import org.springframework.web.client.RestClient;
 import java.time.Duration;
 
 /**
- * payment 통합 테스트의 공통 기반. 진짜 MySQL + 진짜 HTTP 위에서 돈다.
- *
- * Mock PG 가 같은 앱 안에 있지만 빈을 직접 주입하지 않고 실제 소켓으로 부른다 —
- * 운영 배선과 같고, 무엇보다 빈 호출로는 read-timeout 이 재현되지 않는다.
- * 이 클래스가 검증하려는 것의 절반이 "응답을 못 받았을 때 무엇을 하는가" 라서
- * 그 지점을 흉내로 대체하면 테스트가 무의미해진다.
- *
- * 그래서 DEFINED_PORT 다. 랜덤 포트를 쓰면 pg.base-url 을 컨텍스트 기동 전에 알 수 없고,
- * RestClient 빈이 baseUrl 을 고정으로 들고 만들어지므로 나중에 못 바꾼다.
- *
- * read-timeout 을 500ms 로 줄인다. 운영값 3초는 타임아웃 테스트를 그만큼 느리게만 만든다 —
- * 검증 대상은 "제한 시간이 얼마인가" 가 아니라 "넘겼을 때 무엇을 하는가" 다.
+ * Mock PG 를 빈 주입이 아니라 실제 HTTP(DEFINED_PORT)로 부른다 — 빈 호출로는 read-timeout 이 재현되지 않는다.
+ * read-timeout 500ms: 검증 대상은 제한 시간이 아니라 넘겼을 때의 행동이다.
  */
 @Tag("integration")
 @SpringBootTest(
@@ -33,9 +23,8 @@ import java.time.Duration;
 				"server.port=18082",
 				"pg.base-url=http://localhost:18082",
 				"pg.read-timeout=500ms",
-				// 리스너는 띄우지 않는다. 유스케이스를 직접 부르고 Kafka 는 범위 밖이다.
 				"spring.kafka.listener.auto-startup=false",
-				// 배치는 테스트가 직접 부른다. 스케줄러가 끼어들면 행 수 단언이 흔들린다.
+				// 스케줄러가 끼어들면 행 수 단언이 흔들린다.
 				"payment.in-doubt.scan-interval=1h",
 				"retention.scan-interval=1h",
 		})
@@ -51,14 +40,11 @@ public abstract class PaymentIntegrationTest {
 	@Autowired
 	protected JdbcTemplate jdbcTemplate;
 
-	/** 장애 주입 스위치. 테스트가 확률이 아니라 확정으로 켠다 — 확률로는 재현이 안 된다. */
+	/** 확률이 아니라 확정(1.0)으로 켠다. 확률로는 재현이 안 된다. */
 	@Autowired
 	protected MockPgFaults faults;
 
-	/**
-	 * Mock PG 를 직접 두드리기 위한 클라이언트. 프로덕션 PgClient 를 쓰지 않는 이유는
-	 * 테스트 준비에 검증 대상을 쓰면 무엇이 깨졌는지 구분되지 않기 때문이다.
-	 */
+	/** 준비에 검증 대상(PgClient)을 쓰지 않는다. */
 	protected final RestClient pg = RestClient.builder().baseUrl(PG_BASE_URL).build();
 
 	@BeforeEach
@@ -68,7 +54,7 @@ public abstract class PaymentIntegrationTest {
 		jdbcTemplate.execute("delete from payment");
 		jdbcTemplate.execute("delete from billing_key");
 
-		// PG 의 인메모리 상태는 컨텍스트와 함께 살아 있다. 테스트마다 orderNo 를 새로 만들어 피한다.
+		// PG 인메모리 상태는 리셋하지 않는다. 테스트마다 새 orderNo 로 피한다.
 		faults.setRejectRate(0);
 		faults.setErrorRate(0);
 		faults.setDelayRate(0);

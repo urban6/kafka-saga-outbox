@@ -6,12 +6,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	// starter-kafka 를 써야 spring-boot-kafka(오토컨피그)가 따라온다.
-	// spring-kafka 만 넣으면 Boot 4 에서는 spring.kafka.* 가 통째로 무시된다 — 조용히.
+	// spring-kafka 만 넣으면 Boot 4 에서 spring.kafka.* 가 조용히 무시된다.
 	implementation 'org.springframework.boot:spring-boot-starter-kafka'
 
-	// order 와 드라이버를 통일한다. MariaDB 드라이버는 MySQL 8 의 caching_sha2_password 와
-	// 부딪혀 allowPublicKeyRetrieval 을 강제한다.
 	runtimeOnly 'com.mysql:mysql-connector-j'
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
@@ -25,7 +22,6 @@ bootJar {
 	archiveFileName = 'payment-api.jar'
 }
 
-// 실행 가능한 bootJar만 만든다. 다른 모듈이 참조하지 않으므로 plain jar는 불필요.
 jar {
 	enabled = false
 }

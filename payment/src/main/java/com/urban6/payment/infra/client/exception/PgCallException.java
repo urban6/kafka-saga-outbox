@@ -1,9 +1,6 @@
 package com.urban6.payment.infra.client.exception;
 
-/**
- * PG 가 에러 본문으로 거절한 호출 중 결론으로 번역할 수 없는 것.
- * 청구는 거절도 하나의 결론이라 결과 record 가 되지만, 빌링키 발급은 번역할 결론이 없다.
- */
+/** 결론으로 번역할 수 없는 PG 에러(빌링키 발급 등). 청구는 결과 record 로 번역된다. */
 public class PgCallException extends RuntimeException {
 
 	private final int httpStatus;

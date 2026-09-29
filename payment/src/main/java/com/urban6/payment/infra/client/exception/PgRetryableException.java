@@ -1,11 +1,6 @@
 package com.urban6.payment.infra.client.exception;
 
-/**
- * PG 가 "지금은 안 되지만 다시 하면 될 수 있다" 고 답한 경우.
- *
- * 결과가 아니라 예외인 이유는 재시도가 DB 에 아무것도 남기지 않아야 해서다 — 결제 행을 남기면
- * uk_order_no 가 다음 시도를 막고, 멱등 선점을 남기면 그 커맨드는 영영 재처리되지 않는다.
- */
+/** 결과가 아니라 예외인 건 DB 에 아무것도 남기지 않아야 해서다 — 행이나 멱등 선점이 남으면 재시도가 막힌다. */
 public class PgRetryableException extends RuntimeException {
 
 	private final String code;

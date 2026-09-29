@@ -11,10 +11,7 @@ import org.springframework.web.client.RestClient;
 import java.io.IOException;
 import java.math.BigDecimal;
 
-/**
- * Mock PG 호출. 하는 일은 Toss 에러 코드를 우리 결론(PgChargeResult)으로 번역하는 것 하나다.
- * 멱등키는 order_no 이고, 반드시 트랜잭션 밖에서 호출한다.
- */
+/** Toss 에러 코드를 PgChargeResult 로 번역한다. 반드시 트랜잭션 밖에서 호출한다. */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -22,14 +19,13 @@ public class PgClient {
 
 	private static final String IDEMPOTENCY_KEY = "Idempotency-Key";
 
-	/** Toss 빌링 청구 본문. orderName 은 필수인데 payment 는 상품명을 모르므로 주문번호를 넣는다. */
+	/** orderName 은 필수인데 상품명을 모르므로 주문번호를 넣는다. */
 	private record ChargeRequest(String customerKey, String orderId, String orderName, BigDecimal amount) {
 	}
 
 	private record IssueBillingKeyRequest(String customerKey, String cardNumber) {
 	}
 
-	/** 응답 본문. 우리가 쓰는 필드만 선언한다 — PG 가 필드를 늘려도 안 깨진다. */
 	private record PgPaymentResponse(String paymentKey, String orderId, String status) {
 	}
 
@@ -39,16 +35,12 @@ public class PgClient {
 	private record PgErrorResponse(String code, String message) {
 	}
 
-	/** 빌링키 발급 결과. 카드번호는 돌아오지 않는다 — 끝 4자리는 PG 가 응답으로 준 값이다. */
 	public record IssuedBillingKey(String billingKey, String cardLast4) {
 	}
 
 	private final RestClient restClient;
 
-	/**
-	 * Toss POST /v1/billing/authorizations/card. 카드번호는 이 호출로 우리 손을 떠난다.
-	 * 청구와 달리 결론으로 번역하지 않는다 — 사가 밖의 동기 HTTP 라 실패를 그대로 돌려주면 된다.
-	 */
+	/** 청구와 달리 결론으로 번역하지 않는다 — 사가 밖의 동기 HTTP 라 실패를 그대로 돌려준다. */
 	public IssuedBillingKey issueBillingKey(String customerId, String cardNumber) {
 		return restClient.post()
 				.uri("/v1/billing/authorizations/card")
@@ -69,12 +61,7 @@ public class PgClient {
 				});
 	}
 
-	/**
-	 * Toss POST /v1/billing/{billingKey}. 여기서 돈이 빠진다.
-	 *
-	 * 타임아웃은 거절이 아니다 — 요청이 안 갔을 수도, 갔는데 응답만 유실됐을 수도 있다.
-	 * 후자면 돈은 이미 빠졌으므로 IN_DOUBT 로 올려보내고 조회로 해소한다.
-	 */
+	/** 타임아웃은 거절이 아니다 — 응답만 유실됐으면 돈은 이미 빠졌으므로 IN_DOUBT 다. */
 	public PgChargeResult charge(String orderNo, String billingKey, String customerId, BigDecimal amount) {
 		try {
 			return restClient.post()
@@ -83,13 +70,13 @@ public class PgClient {
 					.body(new ChargeRequest(customerId, orderNo, orderNo, amount))
 					.exchange((request, response) -> map(orderNo, response));
 		} catch (ResourceAccessException e) {
-			// 연결 실패·read timeout·소켓 끊김이 전부 여기로 온다. 응답 자체가 없었다는 뜻이다.
+			// read timeout 은 exchange 람다에 도달하지 않는다. 여기서 잡아야 한다.
 			log.warn("pg charge did not answer. orderNo={} cause={}", orderNo, e.getMessage());
 			return PgChargeResult.inDoubt("PG_TIMEOUT", "PG 응답을 받지 못했습니다. orderNo=" + orderNo);
 		}
 	}
 
-	// exchange 를 쓰는 건 기본 에러 핸들링이 4xx/5xx 에 예외를 던져 본문의 code 를 못 읽게 해서다.
+	// exchange 를 쓰는 건 기본 에러 핸들링이 4xx/5xx 에서 던져 본문의 code 를 못 읽어서다.
 	private PgChargeResult map(String orderNo,
 			RestClient.RequestHeadersSpec.ConvertibleClientHttpResponse response) throws IOException {
 
@@ -105,31 +92,21 @@ public class PgClient {
 		log.info("pg charge error. orderNo={} httpStatus={} code={}", orderNo, status.value(), code);
 
 		return switch (code) {
-			// 실패가 아니라 성공이다. 여기서 잘못 판단하면 이미 받은 돈에 대해
-			// 재고 해제와 주문 취소가 돌아 최악이 된다.
-			//
-			// 이 응답에는 paymentKey 가 없고, 빌링은 결제창과 달리 우리가 보낸 키도 없다.
-			// 실제 결제를 성사시킨 이전 시도의 키는 PG 만 안다 — 조회로 가져온다.
+			// 실패가 아니라 성공이다(실패로 보면 받은 돈에 보상이 돈다). 응답에 paymentKey 가 없어 조회로 가져온다.
 			case "ALREADY_PROCESSED_PAYMENT" -> reconcile(orderNo);
 
 			case "REJECT_CARD_COMPANY" -> PgChargeResult.rejected(code, message);
 
-			// DB 엔 키가 있는데 PG 가 모른다 — 카드 폐기·만료 상황이다. 돈은 안 빠졌고 재시도해도 같다.
-			// (Mock 은 인메모리라 payment 앱을 재시작하면 이 경로가 실제로 나온다. 재등록으로 복구)
+			// 카드 폐기·만료. 돈은 안 빠졌고 재시도해도 같다.
 			case "NOT_FOUND_BILLING_KEY" -> PgChargeResult.rejected(code, message);
 
-			// 같은 멱등키의 앞선 요청이 아직 처리 중이다. 그 요청이 끝나면 결과가 생기므로
-			// 잠시 뒤 다시 부르면 승인이든 ALREADY_PROCESSED 든 답이 나온다.
 			case "IDEMPOTENT_REQUEST_PROCESSING" -> PgChargeResult.retryable(code, message);
 
-			// PG 가 "처리하지 못했다" 고 명시한 실패다. 돈이 안 빠진 게 PG 의 주장이므로 재청구가 안전하다.
 			case "FAILED_PAYMENT_INTERNAL_SYSTEM_PROCESSING", "PROVIDER_ERROR" ->
 					PgChargeResult.retryable(code, message);
 
 			default -> {
-				// 모르는 코드를 거절로 떨어뜨리면 승인된 결제에 보상이 돌 수 있다.
-				// 그렇다고 재청구하면 이중 결제다 — 돈이 빠졌는지 모르기 때문이다.
-				// 모를 때 안전한 행동은 하나뿐이다: 조회로 확인한다.
+				// 거절로 접으면 승인된 결제에 보상이 돌고, 재청구로 접으면 이중 결제다. 조회로 확인한다.
 				log.warn("unmapped pg error code. orderNo={} httpStatus={} code={}",
 						orderNo, status.value(), code);
 				yield PgChargeResult.inDoubt(code, message);
@@ -137,12 +114,7 @@ public class PgClient {
 		};
 	}
 
-	/**
-	 * 조회 API 로 PG 가 실제로 들고 있는 결제를 확인한다. 대사의 유일한 경로이며 두 곳에서 쓴다 —
-	 * ALREADY_PROCESSED_PAYMENT 에서 진짜 paymentKey 를 얻을 때, IN_DOUBT 를 나중에 해소할 때.
-	 *
-	 * 조회가 실패해도 던지지 않고 IN_DOUBT 로 올려보낸다. 복구 배치가 다시 물어보면 된다.
-	 */
+	/** 조회가 실패해도 던지지 않고 IN_DOUBT 로 올려보낸다. 복구 배치가 다시 물어본다. */
 	public PgChargeResult reconcile(String orderNo) {
 		try {
 			return restClient.get()
@@ -158,7 +130,6 @@ public class PgClient {
 								case "ABORTED", "CANCELED", "EXPIRED" ->
 										PgChargeResult.rejected("PG_" + body.status(),
 												"PG 에서 종료된 결제 입니다. pgStatus=" + body.status());
-								// READY/IN_PROGRESS = PG 도 아직 진행 중이다. 다음 배치에서 다시 본다.
 								default -> PgChargeResult.inDoubt("PG_" + body.status(),
 										"PG 가 아직 처리 중입니다. pgStatus=" + body.status());
 							};
@@ -167,7 +138,6 @@ public class PgClient {
 						PgErrorResponse error = response.bodyTo(PgErrorResponse.class);
 						String code = error == null ? "UNKNOWN_ERROR" : error.code();
 						if ("NOT_FOUND_PAYMENT".equals(code)) {
-							// PG 에 기록이 없다 = 청구가 아예 안 닿았다. 돈이 안 빠진 게 확인됐으므로 재청구가 안전하다.
 							log.info("pg has no payment. orderNo={} -> retryable", orderNo);
 							return PgChargeResult.retryable(code, "PG 에 결제 기록이 없습니다.");
 						}

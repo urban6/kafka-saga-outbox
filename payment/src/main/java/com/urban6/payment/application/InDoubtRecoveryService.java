@@ -16,17 +16,14 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * "돈이 빠졌는지 모르는" 결제를 조회 API 로 해소한다. 재청구는 하지 않는다 —
- * 빌링은 인증 세션이 없어 언제든 청구가 통하므로 재청구가 곧 이중 결제다.
- *
- * @Transactional 이 없다. 행마다 PG 를 부르고, 확정은 건별 트랜잭션으로 나간다.
+ * 재청구하지 않고 조회로만 해소한다 — 빌링은 언제든 청구가 통해 재청구가 곧 이중 결제다.
+ * 확정은 건별 트랜잭션이다. 묶으면 마지막 한 건 실패에 앞의 확정이 함께 날아간다.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class InDoubtRecoveryService {
 
-	/** PG 에 기록이 없을 때 남기는 코드. 미체결이 확인됐다는 뜻이다. */
 	static final String PG_NO_RECORD = "PG_NO_RECORD";
 
 	private enum Resolution { SETTLED, PENDING, ESCALATED }
@@ -62,15 +59,13 @@ public class InDoubtRecoveryService {
 				inDoubt.size(), settled, pending, escalated);
 
 		if (escalated > 0) {
-			// 조회를 반복해도 안 풀린 결제다. 돈이 걸려 있고 자동으로는 더 할 게 없다.
-			// 가장 오래된 것이 첫 행이다 — 조회가 updated_at ASC 로 오기 때문.
+			// 첫 행이 가장 오래된 것이다(updated_at ASC).
 			log.error("in-doubt payments need manual review. count={} oldestOrderNo={} oldestAgeSeconds={}",
 					escalated, inDoubt.getFirst().getOrderNo(),
 					Duration.between(inDoubt.getFirst().getUpdatedAt(), now).toSeconds());
 		}
 	}
 
-	/** PG 조회는 트랜잭션 밖이다. 확정만 트랜잭션으로 들어간다. */
 	private Resolution resolve(Payment payment, Instant now) {
 		String orderNo = payment.getOrderNo();
 		PgChargeResult result = pgClient.reconcile(orderNo);
@@ -78,15 +73,10 @@ public class InDoubtRecoveryService {
 		return switch (result.outcome()) {
 			case APPROVED, REJECTED -> settle(payment, result);
 
-			// PG 에 기록이 없다 = 청구가 아예 안 닿았다. 돈이 안 빠진 게 확인됐다.
-			//
-			// 재청구하지 않고 거절로 확정하는 이유: payment 행에 customerId 가 없어 커맨드를 다시 만들 수 없다.
-			// 그리고 pivot 이전이라 보상(주문 취소 + 재고 해제)이 정당하다 — 고객은 다시 주문하면 된다.
-			// (재청구까지 하려면 payment 에 customer_id 를 두거나 사가가 커맨드를 재발행해야 한다)
+			// PG 에 기록이 없다. customerId 가 없어 재청구할 수 없고, pivot 이전이라 거절(보상)이 정당하다.
 			case RETRYABLE -> settle(payment,
 					PgChargeResult.rejected(PG_NO_RECORD, "PG 에 결제 기록이 없어 미체결로 확정합니다."));
 
-			// 여전히 모른다. PG 가 아직 처리 중이거나 조회 자체가 실패했다.
 			case IN_DOUBT -> stillInDoubt(payment, now, result);
 		};
 	}

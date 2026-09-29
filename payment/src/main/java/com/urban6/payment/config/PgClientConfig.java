@@ -8,12 +8,7 @@ import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
 
-/**
- * PG 호출용 RestClient. 타임아웃을 반드시 명시한다 — 기본값이 무제한이라
- * Kafka 리스너가 이 경로를 탈 때 파티션 하나가 통째로 멈출 수 있다.
- *
- * Boot 4 는 RestClient.Builder 오토컨피그가 별도 모듈이라 builder() 로 직접 만든다.
- */
+/** 타임아웃을 반드시 명시한다 — 기본값이 무제한이라 리스너가 이 경로를 타면 파티션이 통째로 멈춘다. */
 @Configuration
 public class PgClientConfig {
 
