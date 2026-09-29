@@ -15,9 +15,7 @@ CREATE TABLE payment (
                          KEY idx_in_doubt (status, updated_at)
 ) ENGINE=InnoDB;
 
--- 고객이 등록한 카드의 빌링키. 고객당 하나 — 재등록은 덮어쓴다.
--- 카드번호는 PG 에만 보내고 여기엔 끝 4자리만 남는다(PCI 경계).
--- customer_id 는 orders.customer_id 와 같은 값이라 컬럼명을 맞춘다.
+-- 고객당 하나(PK customer_id), 재등록은 덮어쓴다. 카드번호는 저장하지 않는다(PCI).
 CREATE TABLE billing_key (
                              customer_id     VARCHAR(64)   NOT NULL,
                              billing_key     VARCHAR(128)  NOT NULL,
