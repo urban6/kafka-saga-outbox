@@ -12,12 +12,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.function.IntUnaryOperator;
 
-/**
- * 보관 주기가 지난 outbox · consumed_message · api_idempotency 를 지운다.
- *
- * @Transactional 이 일부러 없다. 한 트랜잭션으로 묶으면 배치 상한이 의미를 잃는다 —
- * 호출마다 트랜잭션이 끊겨야 락이 실제로 풀린다.
- */
+/** @Transactional 이 일부러 없다. 호출마다 트랜잭션이 끊겨야 락이 실제로 풀린다. */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -47,10 +42,6 @@ public class RetentionCleanupService {
 				outbox, consumed, api);
 	}
 
-	/**
-	 * 상한만큼 반복하되, 지운 수가 상한에 못 미치면 더 지울 게 없다는 뜻이라 멈춘다.
-	 * 반복 자체에도 상한을 둔다 — 한 번에 따라잡으려다 DB 를 독점하는 것보다 낫다.
-	 */
 	private int purgeInBatches(IntUnaryOperator deleteBatch) {
 		int batchSize = properties.batchSize();
 		int total = 0;

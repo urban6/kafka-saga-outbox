@@ -4,12 +4,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * 서비스 사이를 오가는 모든 메시지의 공통 봉투. 발행 전용이며 수신은 InboundEnvelope 가 맡는다.
- *
- * @param eventId 재발행해도 같은 값을 유지해야 컨슈머 멱등이 동작한다
- * @param headers 추적용 부가 정보. 없으면 빈 맵
- */
+/** 발행 전용. eventId 는 재발행해도 같아야 컨슈머 멱등이 동작한다. */
 public record EventEnvelope<T>(
 		UUID eventId,
 		EventType eventType,
@@ -28,7 +23,6 @@ public record EventEnvelope<T>(
 		headers = headers == null ? Map.of() : Map.copyOf(headers);
 	}
 
-	/** 새 이벤트 생성. eventId 는 새로 발급하고 파티션 키는 aggregateId 를 그대로 쓴다. */
 	public static <T> EventEnvelope<T> of(EventType eventType, String aggregateId, T payload) {
 		return new EventEnvelope<>(
 				UUID.randomUUID(),

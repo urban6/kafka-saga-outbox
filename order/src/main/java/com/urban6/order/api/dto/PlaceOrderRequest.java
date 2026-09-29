@@ -20,10 +20,6 @@ public record PlaceOrderRequest(
         List<Item> items
 ) {
 
-    /**
-     * 같은 상품을 여러 항목으로 나눠 보내는 걸 막는다.
-     * 조용히 합치면 order_item 이 상품당 여러 행이 되고, 읽는 코드가 매번 재집계를 기억해야 한다.
-     */
     // items 가 null 이면 true 다. NotEmpty 와 겹쳐 잡으면 메시지가 두 줄 나간다.
     @AssertTrue(message = "같은 상품을 여러 항목으로 나눠 보낼 수 없습니다")
     public boolean isItemsDistinct() {

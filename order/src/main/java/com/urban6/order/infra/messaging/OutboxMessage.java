@@ -18,25 +18,21 @@ import jakarta.persistence.Transient;
 
 import org.springframework.data.domain.Persistable;
 
-/**
- * outbox 테이블 매핑. Debezium Outbox Event Router 가 binlog 에서 읽어가는 형태다.
- * 애플리케이션은 INSERT 만 한다 — 발행 진행을 아는 주체는 우리가 아니라 커넥터의 오프셋이다.
- */
+/** 애플리케이션은 INSERT 만 한다. 발행 진행은 커넥터 오프셋이 안다. */
 @Entity
 @Table(name = "outbox")
 public class OutboxMessage implements Persistable<UUID> {
 
-	/** EventEnvelope.eventId 와 같은 값이며 컨슈머 멱등 키(consumed_message.message_id)로도 쓰인다. */
+	/** EventEnvelope.eventId 와 같은 값. 컨슈머 멱등 키로도 쓰인다. */
 	@Id
 	@JdbcTypeCode(SqlTypes.CHAR)
 	@Column(name = "id", nullable = false, length = 36)
 	private UUID id;
 
-	/** 애그리거트 종류. Debezium 라우팅 메타데이터로 헤더에 실린다. */
 	@Column(name = "aggregate_type", nullable = false, length = 64)
 	private String aggregateType;
 
-	/** 애그리거트 식별자(주문이면 orderNo). 라우터가 이 값을 카프카 메시지 키로 쓴다. */
+	/** 라우터가 이 값을 카프카 메시지 키로 쓴다. */
 	@Column(name = "aggregate_id", nullable = false, length = 64)
 	private String aggregateId;
 
@@ -44,11 +40,10 @@ public class OutboxMessage implements Persistable<UUID> {
 	@Column(name = "event_type", nullable = false, length = 100)
 	private EventType eventType;
 
-	/** 발행될 토픽. 커넥터의 route.by.field 대상이다. */
+	/** 커넥터의 route.by.field 대상. */
 	@Column(nullable = false, length = 100)
 	private String topic;
 
-	/** 직렬화된 EventEnvelope 본문(JSON). */
 	@Column(nullable = false, columnDefinition = "json")
 	private String payload;
 
@@ -69,11 +64,6 @@ public class OutboxMessage implements Persistable<UUID> {
 		this.createdAt = Instant.now();
 	}
 
-	/**
-	 * 발행할 행을 만든다. 토픽은 EventType 이 들고 있는 값을 그대로 쓴다.
-	 *
-	 * @param eventId 발행할 EventEnvelope 의 eventId 와 반드시 같은 값
-	 */
 	public static OutboxMessage of(UUID eventId, String aggregateType, String aggregateId,
 			EventType eventType, String payload) {
 		return new OutboxMessage(eventId, aggregateType, aggregateId, eventType, payload);
@@ -84,7 +74,7 @@ public class OutboxMessage implements Persistable<UUID> {
 		return id;
 	}
 
-	// PK 직접 할당이라 이게 없으면 save() 가 merge() 로 가서 주문마다 SELECT 가 하나 더 나간다.
+	// PK 직접 할당이라 없으면 save() 가 merge() 로 가 SELECT 가 더 나간다.
 	@Transient
 	private boolean isNew = true;
 

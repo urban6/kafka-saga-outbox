@@ -46,13 +46,9 @@ public class PlaceOrderService {
     private final ApiIdempotencyStore apiIdempotencyStore;
     private final ObjectMapper objectMapper;
 
-    /**
-     * 주문을 접수한다. 멱등 선점, 재고 예약, 주문·사가 저장, 결제 승인 커맨드 적재를
-     * 한 트랜잭션으로 처리한다. 같은 Idempotency-Key 가 다시 오면 먼저 만든 주문을 돌려준다.
-     */
+    /** 멱등 선점부터 커맨드 적재까지 한 트랜잭션이다. */
     @Transactional
     public PlaceOrderResponse place(String idempotencyKey, PlaceOrderCommand command) {
-        // 랜덤 접미사라 채번 없이 만들 수 있고, 그래서 멱등 선점보다 먼저 만들어 둘 수 있다.
         String orderNo = OrderNoGenerator.generate();
         if (!apiIdempotencyStore.claim(idempotencyKey, requestHash(command), orderNo)) {
             return replay(idempotencyKey, command);
@@ -69,11 +65,10 @@ public class PlaceOrderService {
         reserveStock(quantityByProduct);
         orderRepository.save(order);
 
-        // 커맨드를 적재하기 전에 "무엇을 기다리는지"를 먼저 남긴다.
         SagaInstance saga = sagaInstanceRepository.save(
                 SagaInstance.start(orderNo, command.customerId(), order.getTotalAmount()));
 
-        // 카드 정보는 싣지 않는다. order 는 고객만 알고, 빌링키는 payment 가 customerId 로 찾는다.
+        // 카드 정보는 싣지 않는다. 빌링키는 payment 가 customerId 로 찾는다.
         outboxWriter.append("Order", EventEnvelope.of(
                 EventType.APPROVE_PAYMENT,
                 orderNo,
@@ -85,13 +80,10 @@ public class PlaceOrderService {
         return new PlaceOrderResponse(orderNo, order.getStatus(), order.getTotalAmount());
     }
 
-    /**
-     * 이미 처리한 키다. 새 주문을 만들지 않고 같은 주문의 현재 상태를 돌려준다.
-     * 최초 응답을 저장해두지 않는 건 어차피 폴링으로 갱신되는 스냅샷이기 때문이다.
-     */
+    /** 저장해둔 응답이 아니라 주문의 현재 상태를 돌려준다. */
     private PlaceOrderResponse replay(String idempotencyKey, PlaceOrderCommand command) {
         ApiIdempotencyStore.Claimed claimed = apiIdempotencyStore.find(idempotencyKey)
-                // claim 이 실패했으면 행이 있다. 없다면 그 사이 정리 배치가 지운 것이므로 재시도가 맞다.
+                // 그 사이 정리 배치가 지웠다면 재시도가 맞다.
                 .orElseThrow(() -> new IllegalStateException("idempotency record vanished: " + idempotencyKey));
 
         if (!claimed.requestHash().equals(requestHash(command))) {
@@ -106,10 +98,7 @@ public class PlaceOrderService {
         return new PlaceOrderResponse(order.getOrderNo(), order.getStatus(), order.getTotalAmount());
     }
 
-    /**
-     * 같은 키에 다른 주문이 실려 오는 걸 잡기 위한 요청 지문.
-     * record 는 선언 순서대로 직렬화되므로 같은 요청이면 같은 문자열이 나온다.
-     */
+    /** record 는 선언 순서대로 직렬화되므로 같은 요청이면 같은 지문이 나온다. */
     private String requestHash(PlaceOrderCommand command) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")
@@ -120,12 +109,7 @@ public class PlaceOrderService {
         }
     }
 
-    /**
-     * 상품별 수량. 검증이 중복 productId 를 막았으므로 라인과 1:1 이다.
-     *
-     * TreeMap 의 정렬이 곧 재고 락 획득 순서다. 확정·해제(Order.quantitiesByProduct())도
-     * 같은 정렬이어야 하고, SortedMap 으로 좁힌 건 그걸 컴파일러가 지키게 하려는 것이다.
-     */
+    /** TreeMap 정렬이 재고 락 획득 순서다. 확정·해제도 같은 정렬이어야 해서 SortedMap 으로 강제한다. */
     private SortedMap<String, Integer> quantitiesByProduct(PlaceOrderCommand command) {
         return command.items().stream().collect(Collectors.toMap(
                 PlaceOrderCommand.Item::productId,
@@ -137,10 +121,7 @@ public class PlaceOrderService {
         ));
     }
 
-    /**
-     * 단가 조회. 재고 예약(벌크 UPDATE) 보다 반드시 먼저 해야 한다.
-     * 벌크 UPDATE 는 영속성 컨텍스트를 우회하므로, 뒤에 읽으면 1차 캐시의 옛 값이 나온다.
-     */
+    /** 재고 예약(벌크 UPDATE)보다 먼저 읽어야 한다. 뒤에 읽으면 1차 캐시의 옛 값이 나온다. */
     private Map<String, Product> loadProducts(Set<String> productIds) {
         Map<String, Product> products = productRepository.findAllByProductIdIn(productIds).stream()
                 .collect(Collectors.toMap(Product::getProductId, Function.identity()));
@@ -153,10 +134,7 @@ public class PlaceOrderService {
         return products;
     }
 
-    /**
-     * 조건부 UPDATE 로 예약한다. 갱신 행 수가 0 이면 가용 수량이 모자란 것이다.
-     * 검사와 예약이 한 문장이라 동시 주문이 몰려도 초과 예약이 나올 수 없다.
-     */
+    /** 검사와 예약이 한 문장이라 초과 예약이 나올 수 없다. 0건이면 재고 부족이다. */
     private void reserveStock(SortedMap<String, Integer> quantityByProduct) {
         Instant now = Instant.now();
         for (Map.Entry<String, Integer> entry : quantityByProduct.entrySet()) {

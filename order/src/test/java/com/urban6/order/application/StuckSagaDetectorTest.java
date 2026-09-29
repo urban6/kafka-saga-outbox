@@ -14,16 +14,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * isStuck 경계 검증.
- *
- * SagaInstance 는 stepStartedAt 을 바꿀 수단이 없다 — 전이를 조건부 UPDATE 로만
- * 하기로 했기 때문이다. 대신 isStuck 이 now 를 주입받으므로
- * 시작 시각을 고정하는 대신 현재 시각을 민다. 결과는 같고 프로덕션 코드는 그대로다.
- *
- * SagaStep 값이 하나뿐이라 "단계마다 임계값이 다르다" 는 성질은
- * StuckSagaPropertiesTest 가 설정 수준에서 본다.
- */
+/** stepStartedAt 을 바꿀 수단이 없어 now 를 민다. */
 class StuckSagaDetectorTest {
 
 	private static final Duration THRESHOLD = Duration.ofSeconds(60);
@@ -35,7 +26,6 @@ class StuckSagaDetectorTest {
 				Map.of(SagaStep.APPROVE_PAYMENT, THRESHOLD),
 				100);
 
-		// isStuck 은 리포지토리를 건드리지 않는다. null 이어도 도는 게 순수 함수라는 증거다.
 		return new StuckSagaDetector(null, properties, new SimpleMeterRegistry());
 	}
 
@@ -55,8 +45,7 @@ class StuckSagaDetectorTest {
 	@Test
 	@DisplayName("임계값 정각은 정체로 본다")
 	void stuck_exactlyAtThreshold() {
-		// 경계를 이상(>=)으로 둔 건 판단이다. 미만으로 두면 스캔 주기와 어긋나
-		// "한 주기 더 지나야 뜨는" 지연이 임계값에 얹힌다.
+		// >= 로 둔다. 초과로 두면 한 스캔 주기만큼 감지가 늦어진다.
 		SagaInstance saga = saga();
 		Instant now = saga.getStepStartedAt().plus(THRESHOLD);
 

@@ -11,13 +11,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * 라인 중복 거부는 요청만 보고 판정할 수 있어 DTO 제약으로 뒀다.
- * DB 를 봐야 아는 unknown product 와는 층이 다르다.
- *
- * 첫 테스트가 가장 중요하다. Hibernate Validator 가 record 에 덧붙인 isXxx() 를
- * 프로퍼티 게터로 인식하지 않으면 제약이 조용히 무시되고, 그러면 위반이 0건으로 나온다.
- */
+/** record 의 isXxx() 가 게터로 인식되지 않으면 @AssertTrue 가 조용히 무시된다. 첫 테스트가 그걸 본다. */
 class PlaceOrderRequestTest {
 
 	private static final Validator validator =

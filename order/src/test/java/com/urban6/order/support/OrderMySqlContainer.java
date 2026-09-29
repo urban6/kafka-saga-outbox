@@ -6,26 +6,17 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
 /**
- * order 통합 테스트가 공유하는 MySQL 컨테이너.
- *
- * 기반 클래스마다 컨테이너를 들면 스프링 컨텍스트가 갈릴 때 MySQL 도 함께 늘어난다.
- * 여기 한 곳에 두면 기동 비용을 한 번만 낸다 — Kafka 를 쓰는 테스트와 안 쓰는 테스트가
- * 서로 다른 컨텍스트를 쓰더라도 DB 는 하나다.
- *
- * DDL 을 복사하지 않는다. docker/mysql/init/02-order.sql 을 컨테이너 초기화 디렉터리에
- * 그대로 마운트한다. 테스트용 스키마를 따로 두면 언젠가 운영 DDL 과 어긋나고,
- * 그때 통합 테스트는 존재하지 않는 스키마를 검증하게 된다.
+ * 두 기반 클래스가 공유하는 MySQL. static 초기화로 한 번만 띄운다(@Testcontainers 를 안 쓰는 이유).
+ * 운영 DDL 을 그대로 마운트한다 — 테스트용 스키마를 따로 두면 언젠가 운영과 어긋난다.
  */
 final class OrderMySqlContainer {
 
-	// org.testcontainers.containers.MySQLContainer 는 2.x 에서 deprecated 다(패키지 이동).
-	// 체이닝하지 않고 문장을 나눈 건 새 클래스가 제네릭이 아니라 반환 타입이 상위로 좁혀지기 때문이다.
+	// 새 MySQLContainer 는 제네릭이 아니라 체이닝하면 반환 타입이 좁혀진다. 그래서 문장을 나눈다.
 	private static final MySQLContainer INSTANCE = new MySQLContainer(DockerImageName.parse("mysql:8.0"));
 
 	static {
 		INSTANCE.withDatabaseName("order_db");
-		// MySQL 8 기본 인증이 caching_sha2_password 라 이게 없으면
-		// "RSA public key is not available client side" 로 연결이 끊긴다.
+		// caching_sha2_password 라 없으면 "RSA public key is not available" 로 끊긴다.
 		INSTANCE.withUrlParam("allowPublicKeyRetrieval", "true");
 		INSTANCE.withUrlParam("useSSL", "false");
 		INSTANCE.withCopyFileToContainer(

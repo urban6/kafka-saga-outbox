@@ -16,14 +16,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-/**
- * 리스너가 무엇을 견디는가. 여기서 지키는 명제는 하나다 —
- * 메시지 하나가 파티션 하나를 멈추게 하지 않는다.
- *
- * 이게 깨지면 같은 파티션에 실린 다른 주문들이 전부 함께 멈춘다. 실패의 범위가 메시지 하나가 아니다.
- * 그래서 나쁜 메시지와 정상 메시지에 같은 키를 써 같은 파티션으로 보낸다 —
- * 키가 다르면 다른 파티션으로 흩어져 "막지 않았다" 를 증명하지 못한다.
- */
 class SagaReplyListenerIntegrationTest extends OrderKafkaIntegrationTest {
 
 	private static final Duration TIMEOUT = Duration.ofSeconds(30);
@@ -31,7 +23,6 @@ class SagaReplyListenerIntegrationTest extends OrderKafkaIntegrationTest {
 	@Autowired
 	private PlaceOrderService placeOrderService;
 
-	/** 결제 승인을 기다리는 주문 하나. 재고는 예약된 상태다. */
 	private String placedOrder(int quantity) {
 		return placeOrderService.place(UUID.randomUUID().toString(),
 				new PlaceOrderCommand("C-1", List.of(new PlaceOrderCommand.Item("P-1001", quantity))))
@@ -87,11 +78,10 @@ class SagaReplyListenerIntegrationTest extends OrderKafkaIntegrationTest {
 	void poisonPillDoesNotBlockThePartition() {
 		String orderNo = placedOrder(1);
 
-		// 역직렬화 자체가 불가능한 값. ErrorHandlingDeserializer 가 없으면 여기서 무한 재시도가 돈다.
+		// 같은 키라 같은 파티션이다. 완료됐다면 앞 메시지를 넘어간 것이다.
 		publishReply(orderNo, "{ this is not json");
 		publishReply(orderNo, approvalOf(orderNo));
 
-		// 같은 키라 같은 파티션이고 순서도 보장된다. 완료됐다는 건 앞 메시지를 넘어갔다는 뜻이다.
 		awaitOrder(orderNo, "COMPLETED");
 	}
 
@@ -105,11 +95,8 @@ class SagaReplyListenerIntegrationTest extends OrderKafkaIntegrationTest {
 
 		ConsumerRecord<String, String> dead = awaitDltRecord(orderNo);
 
-		// 원문 그대로여야 한다. base64 나 JSON 으로 감싸지면 무엇이 깨졌는지 눈으로 못 본다 —
-		// 프로듀서를 고치려면 보낸 바이트가 필요하다.
 		assertThat(dead.value()).isEqualTo(broken);
 		assertThat(headerOf(dead, KafkaHeaders.DLT_ORIGINAL_TOPIC)).isEqualTo(Topics.ORDER_SAGA_REPLIES);
-		// 역직렬화 실패는 재시도 대상이 아니라 첫 실패에서 곧장 온다.
 		assertThat(headerOf(dead, KafkaHeaders.DLT_EXCEPTION_FQCN)).contains("DeserializationException");
 	}
 
@@ -118,22 +105,17 @@ class SagaReplyListenerIntegrationTest extends OrderKafkaIntegrationTest {
 	void exhaustedRetriesArePublishedToDlt() {
 		String orderNo = placedOrder(1);
 
-		// 사가는 STARTED 인데 주문은 이미 CANCELED = 둘이 어긋난 상태.
-		// apply() 의 주문 전이가 0건이 되어 IllegalStateException 으로 롤백되고, 재시도해도 상태는 그대로다.
+		// 사가와 주문을 어긋나게 만들어 주문 전이가 매번 0건 → 던진다.
 		jdbcTemplate.update("update orders set status = 'CANCELED' where order_no = ?", orderNo);
 
 		publishReply(orderNo, approvalOf(orderNo));
 
 		ConsumerRecord<String, String> dead = awaitDltRecord(orderNo);
 
-		// 역직렬화는 성공했으므로 봉투 객체가 JSON 으로 실린다. paymentKey 가 살아 있어야
-		// 사람이 이 결제를 쫓아갈 수 있다 — 이게 없으면 payment_db 를 손으로 대조해야 한다.
 		assertThat(dead.value()).contains("PAYMENT_APPROVED").contains(orderNo).contains("tgen_x");
 		assertThat(headerOf(dead, KafkaHeaders.DLT_ORIGINAL_TOPIC)).isEqualTo(Topics.ORDER_SAGA_REPLIES);
 
-		// 리스너 예외는 컨테이너가 ListenerExecutionFailedException 으로 감싸므로 진짜 원인은 cause 헤더에 있다.
-		// 역직렬화 실패는 감싸이지 않아 위 테스트처럼 fqcn 에 그대로 온다 —
-		// 두 부류를 가르려면 둘 다 봐야 한다. 한쪽만 보면 분류가 조용히 틀린다.
+		// 리스너 예외는 감싸여 오므로 진짜 원인은 cause 헤더에 있다.
 		assertThat(headerOf(dead, KafkaHeaders.DLT_EXCEPTION_FQCN)).contains("ListenerExecutionFailedException");
 		assertThat(headerOf(dead, KafkaHeaders.DLT_EXCEPTION_CAUSE_FQCN)).contains("IllegalStateException");
 	}
@@ -143,8 +125,6 @@ class SagaReplyListenerIntegrationTest extends OrderKafkaIntegrationTest {
 	void unknownEventTypeIsIgnored() {
 		String orderNo = placedOrder(1);
 
-		// payment 가 회신 종류를 추가한 상황. fromWire 덕분에 예외 없이 지나간다.
-		// (valueOf 였다면 에러 핸들러가 4회 시도한 뒤에야 넘어간다 — 결국 처리는 되지만 그만큼 밀린다)
 		publishReply(orderNo, envelope(UUID.randomUUID().toString(), "PAYMENT_PARTIALLY_REFUNDED", orderNo, ""));
 		publishReply(orderNo, approvalOf(orderNo));
 
@@ -156,7 +136,6 @@ class SagaReplyListenerIntegrationTest extends OrderKafkaIntegrationTest {
 	void toleratesUnknownFields() {
 		String orderNo = placedOrder(1);
 
-		// 프로듀서가 봉투와 payload 양쪽에 필드를 늘려도 컨슈머는 그대로 돌아야 한다.
 		String json = """
 				{"eventId":"%s","eventType":"PAYMENT_APPROVED","eventVersion":1,
 				 "aggregateId":"%s","partitionKey":"%s","occurredAt":"2026-09-03T00:00:00Z",
@@ -182,11 +161,9 @@ class SagaReplyListenerIntegrationTest extends OrderKafkaIntegrationTest {
 		publishReply(orderNo, json);
 
 		awaitOrder(orderNo, "COMPLETED");
-		// 두 번째 메시지가 늦게 도착할 수 있으니 잠깐 더 보고도 그대로여야 한다.
+		// 두 번째 메시지가 늦게 올 수 있어 잠깐 더 지켜본다.
 		await().during(Duration.ofSeconds(2)).atMost(TIMEOUT).untilAsserted(() -> {
-			// 두 번 확정됐다면 10이 빠졌을 것이다. 멱등 테이블이 두 번째를 막는다.
 			assertThat(totalBefore - totalOf("P-1001")).isEqualTo(5);
-			// 도메인 이벤트도 하나여야 한다 — 둘이면 외부가 완료를 두 번 본다.
 			assertThat(countForOrder("outbox", orderNo)).isEqualTo(2); // APPROVE_PAYMENT + ORDER_COMPLETED
 		});
 	}

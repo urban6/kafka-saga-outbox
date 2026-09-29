@@ -32,22 +32,11 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 리스너를 실제로 띄우고 진짜 브로커로 메시지를 밀어넣는 기반.
- *
- * OrderIntegrationTest 는 리스너를 끄고 유스케이스를 직접 부른다. 여기서 보는 건 그 앞단이다 —
- * 봉투 역직렬화, 모르는 타입, poison pill. 전부 메시지가 브로커를 거쳐야 재현되는 것들이라
- * 유스케이스를 직접 부르는 방식으로는 검증되지 않는다.
- *
- * MySQL 은 OrderMySqlContainer 를 공유하고 Kafka 만 따로 띄운다. 프로퍼티가 달라
- * 스프링 컨텍스트는 갈리지만 DB 컨테이너는 하나다.
- *
- * 토픽을 직접 만든다. 자동 생성에 맡기면 파티션이 1개가 되는데, 그러면
- * "poison pill 이 같은 파티션의 다음 메시지를 막지 않는다" 를 증명할 수 없다 —
- * 파티션이 하나뿐이면 애초에 비교 대상이 없다. 운영과 같은 3개로 만들고 키를 같게 보낸다.
+ * 리스너를 띄우고 진짜 브로커로 메시지를 미는 기반.
+ * 토픽은 직접 3파티션으로 만든다 — 자동 생성(1개)이면 poison pill 이 같은 파티션 뒷 메시지를 막는지 볼 수 없다.
  */
 @Tag("integration")
 @SpringBootTest(properties = {
-		// 이 기반의 존재 이유. 리스너가 떠 있어야 한다.
 		"spring.kafka.listener.auto-startup=true",
 		"saga.stuck.scan-interval=1h",
 		"retention.scan-interval=1h",
@@ -59,7 +48,6 @@ public abstract class OrderKafkaIntegrationTest {
 
 	private static final KafkaProducer<String, String> PRODUCER;
 
-	/** DLT 도착 대기 상한. 재시도 소진(1초 x 3)에 컨슈머 그룹 합류까지 넉넉히 덮는다. */
 	private static final Duration DLT_TIMEOUT = Duration.ofSeconds(30);
 
 	static {
@@ -106,13 +94,7 @@ public abstract class OrderKafkaIntegrationTest {
 				2, "P-1003");
 	}
 
-	/**
-	 * 원시 문자열을 그대로 보낸다. 깨진 JSON 을 보낼 수 있어야 poison pill 을 재현하므로
-	 * KafkaTemplate 이나 봉투 객체를 쓰지 않는다.
-	 *
-	 * 키는 orderNo 다 — 운영과 같고, 같은 키가 같은 파티션으로 가야
-	 * "앞 메시지가 뒤 메시지를 막지 않는다" 가 성립한다.
-	 */
+	/** 깨진 JSON 도 보내야 해서 원시 문자열로 발행한다. 키가 같아야 같은 파티션에 실린다. */
 	protected void publishRaw(String topic, String key, String value) {
 		try {
 			PRODUCER.send(new ProducerRecord<>(topic, key, value)).get(10, TimeUnit.SECONDS);
@@ -121,10 +103,7 @@ public abstract class OrderKafkaIntegrationTest {
 		}
 	}
 
-	/**
-	 * 행이 아직 없으면 null 을 준다. queryForObject 를 쓰지 않는 이유가 이거다 —
-	 * 비동기라 폴링 중에는 행이 없는 게 정상인데, 예외를 던지면 awaitility 가 그 자리에서 실패한다.
-	 */
+	/** queryForObject 는 행이 없으면 던지고, awaitility 는 AssertionError 만 삼킨다. 그래서 null. */
 	protected String statusOfOrder(String orderNo) {
 		return jdbcTemplate.queryForList("select status from orders where order_no = ?", String.class, orderNo)
 				.stream().findFirst().orElse(null);
@@ -136,11 +115,7 @@ public abstract class OrderKafkaIntegrationTest {
 		return total == null ? 0 : total;
 	}
 
-	/**
-	 * 전역 카운트를 쓰지 않는다. 리스너가 비동기라 앞 테스트의 미처리 메시지가
-	 * @BeforeEach 정리 직후 도착할 수 있고, 그러면 전역 합계가 흔들린다.
-	 * 주문번호는 테스트마다 새로 만들므로 이 범위 안에서는 결정적이다.
-	 */
+	/** 전역 카운트 금지 — 앞 테스트의 늦은 메시지가 정리 직후 도착한다. 주문번호 범위로 좁힌다. */
 	protected int countForOrder(String table, String orderNo) {
 		String column = "outbox".equals(table) ? "aggregate_id" : "order_no";
 		Integer count = jdbcTemplate.queryForObject(
@@ -159,18 +134,7 @@ public abstract class OrderKafkaIntegrationTest {
 		return count == null ? 0 : count;
 	}
 
-	/**
-	 * DLT 에 도착한 레코드를 orderNo 키로 찾아 돌려준다. 이 저장소의 유일한 테스트 컨슈머다.
-	 *
-	 * 다른 단언은 전부 JDBC 로 한다 — 리스너가 DB 를 바꾸는 게 관측점이기 때문이다. 그런데 DLT 는
-	 * 종착지가 토픽이라 DB 에 아무 흔적이 없다. 여기서만 브로커를 직접 읽어야 한다.
-	 *
-	 * awaitility 를 쓰지 않는다. KafkaConsumer 는 스레드 안전하지 않은데 awaitility 는
-	 * 단언을 별도 스레드에서 돌린다. 폴링 루프를 직접 도는 편이 안전하고 읽기도 쉽다.
-	 *
-	 * 그룹을 매번 새로 만들고 earliest 로 읽으므로 앞 테스트가 남긴 레코드까지 다시 본다.
-	 * 그래서 키로 좁힌다 — countForOrder 가 전역 카운트를 피하는 것과 같은 이유다.
-	 */
+	/** KafkaConsumer 는 스레드 안전하지 않아 awaitility(별도 스레드) 대신 폴링 루프를 직접 돈다. */
 	protected ConsumerRecord<String, String> awaitDltRecord(String orderNo) {
 		Map<String, Object> props = Map.of(
 				ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers(),
@@ -195,7 +159,6 @@ public abstract class OrderKafkaIntegrationTest {
 		throw new AssertionError("no DLT record arrived for orderNo=" + orderNo);
 	}
 
-	/** DLT 헤더 읽기. 재생할지 사람이 볼지를 kafka_dlt-exception-fqcn 하나로 가른다. */
 	protected static String headerOf(ConsumerRecord<String, String> record, String name) {
 		Header header = record.headers().lastHeader(name);
 		return header == null ? null : new String(header.value(), StandardCharsets.UTF_8);

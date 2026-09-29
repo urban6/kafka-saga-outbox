@@ -11,7 +11,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import tools.jackson.databind.ObjectMapper;
 
-/** 메시징 인프라 빈 등록. order 는 커맨드 발행과 회신 수신을 둘 다 하므로 둘 다 등록한다. */
 @Configuration
 public class MessagingConfig {
 

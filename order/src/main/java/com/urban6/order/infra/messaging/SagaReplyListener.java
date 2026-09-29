@@ -6,16 +6,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-/**
- * order.saga.replies 수신 지점. 와이어 타입을 해석해 유스케이스에 넘기기만 한다.
- * 멱등성·상태 전이 판단은 전부 OrderSagaOrchestrator 몫이다.
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class SagaReplyListener {
 
-	/** 컨테이너 팩토리 빈 이름. 여기 선언해야 config 와 messaging 이 서로를 참조하지 않는다. */
+	/** 여기 선언해야 config 와 messaging 사이에 순환이 안 생긴다. */
 	public static final String CONTAINER_FACTORY = "sagaReplyListenerContainerFactory";
 
 	private final OrderSagaOrchestrator orchestrator;

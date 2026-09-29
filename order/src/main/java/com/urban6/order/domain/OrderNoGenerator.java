@@ -4,9 +4,6 @@ import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
-/**
- * 주문번호 생성. 형식은 ORD-yyyyMMdd-XXXXXXXX 이고 전 시스템에서 이 형식 하나만 쓴다.
- */
 public final class OrderNoGenerator {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");

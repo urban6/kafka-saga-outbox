@@ -14,10 +14,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Optional<Order> findByOrderNo(String orderNo);
 
-    /**
-     * 주문 상태 전이. 기대한 상태가 아니면 0건이고, 호출부가 그에 맞게 분기한다.
-     * 검사와 갱신이 한 문장이라 "조회 → 검사 → 저장" 사이의 틈이 없다.
-     */
     // Order 대신 FQN 을 쓴 건 HQL 파서가 order 를 정렬 키워드로 볼 여지를 없애려는 것이다.
     @Modifying(flushAutomatically = true)
     @Query("""
