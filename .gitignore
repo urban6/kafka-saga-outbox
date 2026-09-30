@@ -36,8 +36,11 @@ out/
 ### VS Code ###
 .vscode/
 
-### 프로젝트 문서 — 공개 전까지 로컬에만 둔다
-docs/
+### macOS ###
+.DS_Store
+
+### 문서 미리보기 — 로컬에만 둔다
+/docs/review.html
 
 ### Claude Code 지침 — 로컬에만 둔다
 CLAUDE.md
